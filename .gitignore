@@ -1,0 +1,21 @@
+# Virtual environments
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Model folder (ignore BGE-M3 completely)
+model/
+*.bin
+*.pt
+*.safetensors
+
+# HuggingFace caches
+.cache/
+.hf_cache/
+
+# OS junk
+Thumbs.db
+.DS_Store
