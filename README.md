@@ -37,20 +37,14 @@ During installation:
 
 Confirm installation:
 
-```bash
 python --version
-
-
 or:
-
 py -3.10 --version
 
-
 Output should be:
-
 Python 3.10.x
 
-📌 2. Enable Windows Developer Mode
+#📌 2. Enable Windows Developer Mode
 
 This prevents HuggingFace symlink issues and speeds up downloads.
 
@@ -63,11 +57,11 @@ Enable:
 
 ✔ Developer Mode
 
-📌 3. Clone the Repository
+#📌 3. Clone the Repository
 git clone https://github.com/Mohamed-ALQarram/Embedding-Service.git
 cd Embedding-Service
 
-📌 4. Create Virtual Environment (venv)
+#📌 4. Create Virtual Environment (venv)
 If you have multiple Python versions (recommended):
 py -3.10 -m venv venv
 
@@ -83,10 +77,10 @@ venv\Scripts\activate
 Linux/Mac
 source venv/bin/activate
 
-📌 5. Install Requirements
+#📌 5. Install Requirements
 pip install -r requirements.txt
 
-📌 6. Configure the Model (Online Download)
+#📌 6. Configure the Model (Online Download)
 
 Open config.py and set:
 
@@ -104,7 +98,7 @@ Works out-of-the-box
 
 ⚠ If you don’t have CUDA → DO NOT use "cuda".
 
-📌 7. Run the Service
+#📌 7. Run the Service
 
 Start FastAPI:
 
@@ -118,7 +112,7 @@ You should see:
 
 INFO: Uvicorn running on http://127.0.0.1:8000
 
-📌 8. Test the API (Swagger UI)
+#📌 8. Test the API (Swagger UI)
 
 Open:
 
@@ -136,7 +130,7 @@ Example Output:
   "embedding": [ ...1024 float values... ]
 }
 
-📌 9. Offline Mode (Local Model Folder)
+#📌 9. Offline Mode (Local Model Folder)
 
 If you want to run offline:
 
@@ -174,12 +168,12 @@ Embedding-Service/
 └── model/ (optional)
     └── bge-m3/
 
-📌 11. Example cURL Request
+#📌 11. Example cURL Request
 curl -X POST "http://127.0.0.1:8000/embed" \
      -H "Content-Type: application/json" \
      -d "{\"text\": \"Hello embedding world\"}"
 
-📌 12. Troubleshooting
+#📌 12. Troubleshooting
 ⚠ CUDA not available
 
 Set:
