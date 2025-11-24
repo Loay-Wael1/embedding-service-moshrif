@@ -8,9 +8,17 @@ from config import DEVICE, MODEL_NAME
 _device = torch.device("cuda" if DEVICE == "cuda" and torch.cuda.is_available() else "cpu")
 
 # Use XLMRobertaTokenizer instead of AutoTokenizer
-_tokenizer = XLMRobertaTokenizer.from_pretrained(MODEL_NAME, local_files_only=True)
+LOCAL_MODEL = MODEL_NAME.startswith("./")
 
-_model = AutoModel.from_pretrained(MODEL_NAME, local_files_only=True).to(_device)
+_tokenizer = XLMRobertaTokenizer.from_pretrained(
+    MODEL_NAME,
+    local_files_only=LOCAL_MODEL
+)
+
+_model = AutoModel.from_pretrained(
+    MODEL_NAME,
+    local_files_only=LOCAL_MODEL
+).to(_device)
 _model.eval()
 
 

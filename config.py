@@ -1,2 +1,2 @@
-MODEL_NAME = "./model/bge-m3"
-DEVICE = "cuda"
+MODEL_NAME = "BAAI/bge-m3"
+DEVICE = "cpu" 
