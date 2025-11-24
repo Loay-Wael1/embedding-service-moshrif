@@ -20,8 +20,7 @@ That's all.
 # 📌 1) Install Python 3.10
 
 Download Python 3.10 from this link:
-
-https://www.python.org/downloads/release/python-31012/
+https://www.python.org/downloads/release/python-31011/
 
 During installation:
 - ✔ Check **Add Python to PATH**  
