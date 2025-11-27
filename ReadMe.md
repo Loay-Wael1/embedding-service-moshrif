@@ -3,11 +3,11 @@
 
 A simple, self-hosted **embedding & semantic search service** for Arabic content, built as part of a graduation project.
 
-This repo provides:
+This repository provides:
 
 - 🧠 A **FastAPI HTTP service** that generates 1024-dimensional embeddings for Arabic text using a local model.
-- 🔍 A **semantic search system** over Mohamed Moshrif transcripts using **Qdrant** (embedded/local vector DB).
-- 🧾 A ready JSON dataset of ~253 videos, plus an optional prebuilt Qdrant database.
+- 🔍 A **semantic search system** over Mohamed Moshrif’s video transcripts using **Qdrant** (embedded/local vector DB).
+- 🧾 A ready-to-use JSON dataset of ~253 videos, plus an optional prebuilt Qdrant database.
 
 > ⚠️ This project is pure **Python**. Any backend (.NET, Node, Django, etc.) can consume it via simple HTTP calls.
 
@@ -15,23 +15,26 @@ This repo provides:
 
 ## Overview
 
-This project is a small **RAG-style building block**:
+This project is a small **RAG-style building block** composed of:
 
-1. **Embedding API**  
-   A FastAPI service exposes `POST /embed`, which takes text and returns a 1024-dim embedding vector.  
-   Any external backend (web app, .NET API, etc.) calls this endpoint to get embeddings.
+### 1. Embedding API
 
-2. **Semantic Search over Moshrif Content**  
-   Inside `build_qdrant/` you’ll find:
-   - `Moshrif_Knowledge.json` → all video transcripts + metadata  
-   - `build_qdrant_index.py` → builds the Qdrant index:
-     - splits transcripts into chunks  
-     - calls `/embed` to generate embeddings  
-     - stores vectors in a local Qdrant collection  
-   - `test_search_qdrant.py` → runs a semantic search:
-     - embeds the user query  
-     - searches Qdrant  
-     - extracts a **large context** from the original transcript around the best matching chunk  
+A FastAPI service exposes `POST /embed`, which takes text and returns a 1024-dimensional embedding vector.  
+Any external backend (web app, .NET API, etc.) calls this endpoint to get embeddings.
+
+### 2. Semantic Search over Moshrif Content
+
+Inside `build_qdrant/` you’ll find:
+
+- `Moshrif_Knowledge.json` → all video transcripts + metadata  
+- `build_qdrant_index.py` → builds the Qdrant index:
+  - splits transcripts into chunks  
+  - calls `/embed` to generate embeddings  
+  - stores vectors in a local Qdrant collection  
+- `test_search_qdrant.py` → runs a semantic search:
+  - embeds the user query  
+  - searches Qdrant  
+  - extracts a **large context** from the original transcript around the best matching chunk  
 
 ---
 
@@ -42,7 +45,7 @@ This project is a small **RAG-style building block**:
 - ✅ Local **Qdrant embedded mode** (no external DB server needed)
 - ✅ **Chunking with overlap** to reduce information loss at boundaries
 - ✅ **Rich payloads**: `video_id`, `filename`, `telegram_url`, `chunk_index`, `content`
-- ✅ **Context expansion**: return a big chunk of text around the best match
+- ✅ **Context expansion**: returns a large chunk of text around the best match
 - ✅ Ready dataset (`Moshrif_Knowledge.json`) + **prebuilt Qdrant DB download**
 
 ---
@@ -67,7 +70,7 @@ embedding-service-moshrif/
 │
 ├── qdrant_db/                   # Qdrant embedded DB (generated or downloaded)
 │
-├── .gitignore                   # Ignores venv, qdrant_db, etc.
+├── .gitignore                   # Ignores venv, qdrant_db, model files, etc.
 └── README.md                    # This file
 ````
 
@@ -81,9 +84,9 @@ embedding-service-moshrif/
 * Disk space for:
 
   * Local model (hundreds of MB)
-  * Qdrant DB (hundreds of MB depending on data)
+  * Qdrant DB (hundreds of MB, depending on data)
 
-Main Python deps (see `requirements.txt`):
+Main Python dependencies (see `requirements.txt`):
 
 * `fastapi`
 * `uvicorn`
@@ -103,7 +106,7 @@ git clone https://github.com/Loay-Wael1/embedding-service-moshrif.git
 cd embedding-service-moshrif
 ```
 
-### 2. Create & activate virtual environment
+### 2. Create & activate a virtual environment
 
 ```bash
 # Create venv
@@ -134,9 +137,9 @@ From the project root:
 uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
-> ⚠️ Avoid using `--reload` here to prevent loading the model twice in the same process.
+> ⚠️ Avoid using `--reload` to prevent loading the model twice in the same process.
 
-Check:
+Then check:
 
 * Health: `http://127.0.0.1:8000/health`
 * Swagger docs: `http://127.0.0.1:8000/docs`
@@ -147,7 +150,7 @@ Check:
 
 ### Option A: Build locally
 
-> The embedding service must be running on `http://127.0.0.1:8000` before running this script.
+> The embedding service must be running on `http://127.0.0.1:8000` before you run this script.
 
 From the project root:
 
@@ -161,7 +164,7 @@ What this script does:
 1. Reads `Moshrif_Knowledge.json` (all videos).
 2. For each video:
 
-   * splits the transcript into chunks (≈800 chars with 100-char overlap)
+   * splits the transcript into chunks (≈800 characters with 100-character overlap)
    * calls `/embed` for each chunk
    * stores the vector + metadata in Qdrant (`../qdrant_db`)
 3. When finished, you should see:
@@ -177,8 +180,8 @@ If you don’t want to wait for all embeddings to be generated:
 
 1. Download the prebuilt Qdrant DB from Google Drive:
 
-   **📥 Prebuilt Qdrant DB**
-   [https://drive.google.com/drive/folders/1bEqW2mC-t50Cl8pfYxXJVrZ_j6EtLq8M?usp=sharing](https://drive.google.com/drive/folders/1bEqW2mC-t50Cl8pfYxXJVrZ_j6EtLq8M?usp=sharing)
+**📥 Prebuilt Qdrant DB**
+[https://drive.google.com/drive/folders/1bEqW2mC-t50Cl8pfYxXJVrZ_j6EtLq8M?usp=sharing](https://drive.google.com/drive/folders/1bEqW2mC-t50Cl8pfYxXJVrZ_j6EtLq8M?usp=sharing)
 
 2. Place the `qdrant_db` folder in the project root:
 
@@ -205,7 +208,7 @@ python test_search_qdrant.py
 
 The script:
 
-* Embeds example queries (e.g. `ازاي مصر تبقى الهند في تكنولوجيا المعلومات؟`)
+* Embeds example queries in Arabic (e.g. about IT, careers, etc.)
 * Queries Qdrant (`moshrif_knowledge` collection) using `QdrantClient(path="qdrant_db")`
 * Picks the best match
 * Expands context using the original transcript in `Moshrif_Knowledge.json`
@@ -214,7 +217,7 @@ Example output:
 
 ```text
 ================================================================================
-Query: ازاي نختار شغلانة في البرمجة؟
+Query: How to choose a programming career?
 --------------------------------------------------------------------------------
 BEST HIT:
   score      : 0.56
@@ -232,6 +235,7 @@ CONTEXT AROUND MATCH :
 ## How the Qdrant Pipeline Works (Summary)
 
 1. **Data**
+
    `Moshrif_Knowledge.json` contains records like:
 
    ```json
@@ -244,12 +248,15 @@ CONTEXT AROUND MATCH :
    ```
 
 2. **Chunking**
-   `build_qdrant_index.py` uses `iter_chunks(text, max_chars=800, overlap=100)` to split each transcript into overlapping chunks.
+
+   `build_qdrant_index.py` uses a helper like `iter_chunks(text, max_chars=800, overlap=100)` to split each transcript into overlapping chunks.
 
 3. **Embedding**
-   Each chunk is sent to the `/embed` endpoint, and a 1024-dim vector is returned.
+
+   Each chunk is sent to the `/embed` endpoint, and a 1024-dimensional vector is returned.
 
 4. **Indexing in Qdrant**
+
    A collection `moshrif_knowledge` is created with:
 
    * vector size: 1024
@@ -258,6 +265,7 @@ CONTEXT AROUND MATCH :
    Vectors + metadata are stored using `client.upsert(...)`.
 
 5. **Search**
+
    `test_search_qdrant.py`:
 
    * embeds the query
@@ -265,8 +273,6 @@ CONTEXT AROUND MATCH :
    * selects the best hit
    * extracts a large context window from the original transcript around that chunk.
 
-This is the entire pipeline used for semantic search over Moshrif’s content.
-
 ```
-::contentReference[oaicite:0]{index=0}
+....................................................................................................
 ```
