@@ -1,4 +1,3 @@
-
 ````markdown
 # Embedding Service (Moshrif Knowledge)
 
@@ -24,15 +23,15 @@ This project is a small **RAG-style building block**:
 
 2. **Semantic Search over Moshrif Content**  
    Inside `build_qdrant/` you’ll find:
-   - `Moshrif_Knowledge.json` → all video transcripts + metadata
+   - `Moshrif_Knowledge.json` → all video transcripts + metadata  
    - `build_qdrant_index.py` → builds the Qdrant index:
-     - splits transcripts into chunks
-     - calls `/embed` to generate embeddings
-     - stores vectors in a local Qdrant collection
+     - splits transcripts into chunks  
+     - calls `/embed` to generate embeddings  
+     - stores vectors in a local Qdrant collection  
    - `test_search_qdrant.py` → runs a semantic search:
-     - embeds the user query
-     - searches Qdrant
-     - extracts a **large context** from the original transcript around the best matching chunk
+     - embeds the user query  
+     - searches Qdrant  
+     - extracts a **large context** from the original transcript around the best matching chunk  
 
 ---
 
@@ -141,8 +140,6 @@ Check:
 
 * Health: `http://127.0.0.1:8000/health`
 * Swagger docs: `http://127.0.0.1:8000/docs`
-
-
 
 ---
 
@@ -257,7 +254,8 @@ CONTEXT AROUND MATCH :
 
    * vector size: 1024
    * distance: cosine
-     Vectors + metadata are stored using `client.upsert(...)`.
+
+   Vectors + metadata are stored using `client.upsert(...)`.
 
 5. **Search**
    `test_search_qdrant.py`:
