@@ -1,4 +1,3 @@
-````markdown
 # Embedding Service (Moshrif Knowledge)
 
 A simple, self-hosted **embedding & semantic search service** for Arabic content, built as part of a graduation project.
