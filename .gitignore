@@ -19,3 +19,10 @@ model/
 # OS junk
 Thumbs.db
 .DS_Store
+# Qdrant database
+venv/
+__pycache__/
+qdrant_db/
+build_qdrant/__pycache__/
+*.pyc
+
