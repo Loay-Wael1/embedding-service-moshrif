@@ -19,10 +19,11 @@ model/
 # OS junk
 Thumbs.db
 .DS_Store
-# Qdrant database
-venv/
-__pycache__/
+
+# Qdrant databases
 qdrant_db/
-build_qdrant/__pycache__/
-*.pyc
+hierarchical_retrieval/qdrant_db_hierarchical/
+
+# Large data files
+hierarchical_retrieval/Moshrif-knowledge-chunks.json
 

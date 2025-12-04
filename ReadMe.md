@@ -1,278 +1,201 @@
-````markdown
-# Embedding Service (Moshrif Knowledge)
+# 🚀 Moshrif Embedding Service
 
-A simple, self-hosted **embedding & semantic search service** for Arabic content, built as part of a graduation project.
-
-This repository provides:
-
-- 🧠 A **FastAPI HTTP service** that generates 1024-dimensional embeddings for Arabic text using a local model.
-- 🔍 A **semantic search system** over Mohamed Moshrif’s video transcripts using **Qdrant** (embedded/local vector DB).
-- 🧾 A ready-to-use JSON dataset of ~253 videos, plus an optional prebuilt Qdrant database.
-
-> ⚠️ This project is pure **Python**. Any backend (.NET, Node, Django, etc.) can consume it via simple HTTP calls.
+خدمة Embedding متكاملة للمحتوى العربي باستخدام نموذج BGE-M3، مع نظام استرجاع هرمي ذكي (Hierarchical Retrieval) لقاعدة بيانات Qdrant.
 
 ---
 
-## Overview
+## 📋 المميزات
 
-This project is a small **RAG-style building block** composed of:
-
-### 1. Embedding API
-
-A FastAPI service exposes `POST /embed`, which takes text and returns a 1024-dimensional embedding vector.  
-Any external backend (web app, .NET API, etc.) calls this endpoint to get embeddings.
-
-### 2. Semantic Search over Moshrif Content
-
-Inside `build_qdrant/` you’ll find:
-
-- `Moshrif_Knowledge.json` → all video transcripts + metadata  
-- `build_qdrant_index.py` → builds the Qdrant index:
-  - splits transcripts into chunks  
-  - calls `/embed` to generate embeddings  
-  - stores vectors in a local Qdrant collection  
-- `test_search_qdrant.py` → runs a semantic search:
-  - embeds the user query  
-  - searches Qdrant  
-  - extracts a **large context** from the original transcript around the best matching chunk  
+- ✅ **Embedding API** - واجهة FastAPI لتوليد embeddings للنصوص العربية
+- ✅ **Arabic Text Normalization** - تطبيع النصوص العربية (إزالة التشكيل، توحيد الألف، إلخ)
+- ✅ **Hierarchical Retrieval** - نظام استرجاع ثلاثي الطبقات (Filename → Title → Content)
+- ✅ **Qdrant Integration** - تخزين واسترجاع فعّال باستخدام Qdrant Vector Database
+- ✅ **BGE-M3 Model** - نموذج متعدد اللغات عالي الجودة (1024-dim vectors)
 
 ---
 
-## Features
+## 🏗️ بنية المشروع
 
-- ✅ Local **FastAPI** service exposing `/embed`
-- ✅ **1024-dim embeddings** (tuned for Arabic text)
-- ✅ Local **Qdrant embedded mode** (no external DB server needed)
-- ✅ **Chunking with overlap** to reduce information loss at boundaries
-- ✅ **Rich payloads**: `video_id`, `filename`, `telegram_url`, `chunk_index`, `content`
-- ✅ **Context expansion**: returns a large chunk of text around the best match
-- ✅ Ready dataset (`Moshrif_Knowledge.json`) + **prebuilt Qdrant DB download**
-
----
-
-## Project Structure
-
-```text
-embedding-service-moshrif/
-│
-├── main.py                      # FastAPI application (/health, /embed)
-├── model_loader.py              # Loads embedding model and computes vectors
-├── config.py                    # Config (model path, device, etc.)
-├── requirements.txt             # Python dependencies
-│
-├── model/                       # Local embedding model (e.g. BGE-M3)
-│   └── bge-m3/                  # Model files (NOT usually committed)
-│
-├── build_qdrant/
-│   ├── Moshrif_Knowledge.json   # ~253 Moshrif video transcripts
-│   ├── build_qdrant_index.py    # Build/fill Qdrant collection
-│   └── test_search_qdrant.py    # Run semantic search + context expansion
-│
-├── qdrant_db/                   # Qdrant embedded DB (generated or downloaded)
-│
-├── .gitignore                   # Ignores venv, qdrant_db, model files, etc.
-└── README.md                    # This file
-````
+```
+Embedding-Service/
+├── main.py                    # FastAPI Embedding API
+├── model_loader.py            # تحميل نموذج BGE-M3
+├── config.py                  # إعدادات النموذج
+├── requirements.txt           # المتطلبات
+├── model/
+│   └── bge-m3/               # ملفات النموذج
+├── qdrant_db/                # قاعدة بيانات Qdrant الأساسية
+└── hierarchical_retrieval/   # نظام الاسترجاع الهرمي
+    ├── search_hierarchical.py        # البحث الهرمي
+    ├── build_hierarchical_index.py   # بناء الفهرس
+    ├── normalize_arabic.py           # تطبيع النصوص
+    ├── Moshrif-knowledge-chunks.json # البيانات
+    └── qdrant_db_hierarchical/       # قاعدة البيانات الهرمية
+```
 
 ---
 
-## Requirements
+## 🚀 التثبيت
 
-* **Python** 3.10 (recommended; used in development)
-* **pip** (latest recommended)
-* OS: Windows / Linux / macOS (tested on Windows)
-* Disk space for:
-
-  * Local model (hundreds of MB)
-  * Qdrant DB (hundreds of MB, depending on data)
-
-Main Python dependencies (see `requirements.txt`):
-
-* `fastapi`
-* `uvicorn`
-* `transformers`
-* `torch`
-* `pydantic`
-* `qdrant-client==1.16.1`  ← version used to build and query the index
-
----
-
-## Setup
-
-### 1. Clone the repository
-
+### 1. استنساخ المستودع
 ```bash
 git clone https://github.com/Loay-Wael1/embedding-service-moshrif.git
 cd embedding-service-moshrif
 ```
 
-### 2. Create & activate a virtual environment
-
+### 2. إنشاء بيئة افتراضية
 ```bash
-# Create venv
 python -m venv venv
 
 # Windows
 venv\Scripts\activate
 
-# Linux / macOS
+# Linux/Mac
 source venv/bin/activate
 ```
 
-### 3. Install dependencies
-
+### 3. تثبيت المتطلبات
 ```bash
-pip install --upgrade pip
 pip install -r requirements.txt
-pip install "qdrant-client==1.16.1"
 ```
+
+### 4. تحميل النموذج
+قم بتحميل نموذج [BGE-M3](https://huggingface.co/BAAI/bge-m3) ووضعه في مجلد `model/bge-m3/`
 
 ---
 
-## Run the Embedding Service
+## 💻 الاستخدام
 
-From the project root:
+### تشغيل خدمة الـ Embedding API
 
 ```bash
-uvicorn main:app --host 0.0.0.0 --port 8000
+uvicorn main:app --reload
 ```
 
-> ⚠️ Avoid using `--reload` to prevent loading the model twice in the same process.
+الخدمة ستعمل على: `http://127.0.0.1:8000`
 
-Then check:
+### الـ Endpoints
 
-* Health: `http://127.0.0.1:8000/health`
-* Swagger docs: `http://127.0.0.1:8000/docs`
+| Endpoint | Method | الوصف |
+|----------|--------|-------|
+| `/health` | GET | فحص حالة الخدمة |
+| `/embed` | POST | توليد embedding لنص |
+
+### مثال استخدام الـ API
+
+```python
+import requests
+
+response = requests.post(
+    "http://127.0.0.1:8000/embed",
+    json={"text": "كيف أربي طفلي؟"}
+)
+
+embedding = response.json()["embedding"]
+print(f"Vector size: {len(embedding)}")  # 1024
+```
 
 ---
 
-## Building the Qdrant Index
+## 🔍 نظام الاسترجاع الهرمي (Hierarchical Retrieval)
 
-### Option A: Build locally
+### الفكرة
+نظام ذكي يبحث على 3 مستويات بأولويات مختلفة:
 
-> The embedding service must be running on `http://127.0.0.1:8000` before you run this script.
+| الطبقة | Threshold | السلوك |
+|--------|-----------|--------|
+| **Filename** | 0.60 | إذا طابق اسم الملف، يرجع كل chunks الفيديو بترتيبها الطبيعي |
+| **Title** | 0.65 | إذا طابق العنوان، يرجع أفضل 5 chunks من كل الفيديوهات |
+| **Content** | 0.55 | إذا طابق المحتوى، يرجع الـ chunk المطابق فقط |
 
-From the project root:
+### بناء الفهرس
 
 ```bash
-cd build_qdrant
-python build_qdrant_index.py
+cd hierarchical_retrieval
+python build_hierarchical_index.py
 ```
 
-What this script does:
+### البحث
 
-1. Reads `Moshrif_Knowledge.json` (all videos).
-2. For each video:
+```python
+from hierarchical_retrieval.search_hierarchical import search_query
 
-   * splits the transcript into chunks (≈800 characters with 100-character overlap)
-   * calls `/embed` for each chunk
-   * stores the vector + metadata in Qdrant (`../qdrant_db`)
-3. When finished, you should see:
+result = search_query("هل الذكاء الاصطناعي هيستبدل المبرمجين؟", top_k=5)
 
-```text
-Finished building Qdrant index!
-Done in XXXX.X seconds
+print(f"Mode: {result['retrieval_mode']}")
+print(f"Scores: {result['scores']}")
+for chunk in result['results']:
+    print(f"- {chunk['chunk_title']}")
 ```
 
-### Option B: Use prebuilt database
+### مثال الـ Output
 
-If you don’t want to wait for all embeddings to be generated:
-
-1. Download the prebuilt Qdrant DB from Google Drive:
-
-**📥 Prebuilt Qdrant DB**
-[https://drive.google.com/drive/folders/1bEqW2mC-t50Cl8pfYxXJVrZ_j6EtLq8M?usp=sharing](https://drive.google.com/drive/folders/1bEqW2mC-t50Cl8pfYxXJVrZ_j6EtLq8M?usp=sharing)
-
-2. Place the `qdrant_db` folder in the project root:
-
-```text
-embedding-service-moshrif/
-├── qdrant_db/
-├── main.py
-├── build_qdrant/
-└── ...
-```
-
-3. You can now run the search script directly.
-
----
-
-## Semantic Search (Test Script)
-
-From the project root:
-
-```bash
-cd build_qdrant
-python test_search_qdrant.py
-```
-
-The script:
-
-* Embeds example queries in Arabic (e.g. about IT, careers, etc.)
-* Queries Qdrant (`moshrif_knowledge` collection) using `QdrantClient(path="qdrant_db")`
-* Picks the best match
-* Expands context using the original transcript in `Moshrif_Knowledge.json`
-
-Example output:
-
-```text
-================================================================================
-Query: How to choose a programming career?
---------------------------------------------------------------------------------
-BEST HIT:
-  score      : 0.56
-  video_id   : 152
-  filename   : ...
-  telegram   : https://t.me/...
-  chunk_idx  : 12
---------------------------------------------------------------------------------
-CONTEXT AROUND MATCH :
-[long passage around the relevant part of the video...]
+```json
+{
+  "query": "هل الذكاء الاصطناعي هيستبدل المبرمجين؟",
+  "retrieval_mode": "by_filename",
+  "scores": {
+    "title": 0.5234,
+    "filename": 0.7821,
+    "content": 0.6123
+  },
+  "results": [
+    {
+      "video_id": 15,
+      "filename": "الذكاء الاصطناعي والبرمجة",
+      "chunk_id": 1,
+      "chunk_title": "مقدمة",
+      "chunk_content": "..."
+    }
+  ]
+}
 ```
 
 ---
 
-## How the Qdrant Pipeline Works (Summary)
+## ⚙️ الإعدادات
 
-1. **Data**
-
-   `Moshrif_Knowledge.json` contains records like:
-
-   ```json
-   {
-     "id": 1,
-     "filename": "some_video_name",
-     "telegram_url": "https://t.me/...",
-     "content": "full Arabic transcript..."
-   }
-   ```
-
-2. **Chunking**
-
-   `build_qdrant_index.py` uses a helper like `iter_chunks(text, max_chars=800, overlap=100)` to split each transcript into overlapping chunks.
-
-3. **Embedding**
-
-   Each chunk is sent to the `/embed` endpoint, and a 1024-dimensional vector is returned.
-
-4. **Indexing in Qdrant**
-
-   A collection `moshrif_knowledge` is created with:
-
-   * vector size: 1024
-   * distance: cosine
-
-   Vectors + metadata are stored using `client.upsert(...)`.
-
-5. **Search**
-
-   `test_search_qdrant.py`:
-
-   * embeds the query
-   * calls `client.query_points(...)`
-   * selects the best hit
-   * extracts a large context window from the original transcript around that chunk.
-
+### config.py
+```python
+MODEL_NAME = "./model/bge-m3"  # مسار النموذج
+DEVICE = "cpu"                  # أو "cuda" للـ GPU
 ```
-....................................................................................................
+
+### Thresholds (في search_hierarchical.py)
+```python
+TITLE_THRESHOLD = 0.65
+FILENAME_THRESHOLD = 0.60
+CONTENT_THRESHOLD = 0.55
 ```
+
+---
+
+## 📊 تطبيع النصوص العربية
+
+الخدمة تقوم تلقائياً بتطبيع النصوص العربية قبل توليد الـ embedding:
+
+1. **إزالة التشكيل** - حذف الحركات (فتحة، ضمة، كسرة، إلخ)
+2. **توحيد الألف** - تحويل (إ، أ، آ) إلى (ا)
+3. **توحيد الياء** - تحويل (ى) إلى (ي)
+4. **تنظيف المسافات** - إزالة الشرطات والمسافات الزائدة
+
+---
+
+## 🛠️ المتطلبات التقنية
+
+- Python 3.10+
+- PyTorch 2.0+
+- ~2GB RAM للنموذج
+- GPU اختياري (يعمل على CPU)
+
+---
+
+## 📝 License
+
+MIT License
+
+---
+
+## 👨‍💻 المطور
+
+[Loay Wael](https://github.com/Loay-Wael1)

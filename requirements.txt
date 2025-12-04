@@ -1,6 +1,16 @@
-fastapi
-uvicorn
-torch
-transformers
-sentencepiece
-huggingface-hub
+# Core API
+fastapi>=0.100.0
+uvicorn>=0.22.0
+pydantic>=2.0.0
+
+# Machine Learning
+torch>=2.0.0
+transformers>=4.30.0
+sentencepiece>=0.1.99
+huggingface-hub>=0.16.0
+
+# Vector Database
+qdrant-client>=1.6.0
+
+# HTTP Requests
+requests>=2.31.0
