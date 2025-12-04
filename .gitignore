@@ -24,6 +24,5 @@ Thumbs.db
 qdrant_db/
 hierarchical_retrieval/qdrant_db_hierarchical/
 
-# Large data files
-hierarchical_retrieval/Moshrif-knowledge-chunks.json
+
 
