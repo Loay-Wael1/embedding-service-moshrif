@@ -15,6 +15,7 @@ model/
 # HuggingFace caches
 .cache/
 .hf_cache/
+.env
 
 # OS junk
 Thumbs.db
@@ -23,6 +24,7 @@ Thumbs.db
 # Qdrant databases
 qdrant_db/
 hierarchical_retrieval/qdrant_db_hierarchical/
+qdrant_db_legal/
 
 
 

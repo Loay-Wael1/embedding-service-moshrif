@@ -1,201 +1,298 @@
-# 🚀 Moshrif Embedding Service
+# Egyptian Laws Embedding + Retrieval Service
 
-خدمة Embedding متكاملة للمحتوى العربي باستخدام نموذج BGE-M3، مع نظام استرجاع هرمي ذكي (Hierarchical Retrieval) لقاعدة بيانات Qdrant.
+هذا المشروع أصبح نظام استرجاع قانوني للمحتوى التشريعي المصري، بعد إزالة تصميمه القديم المبني على فيديوهات وترانسكريبتات. النظام الحالي مبني حول:
 
----
+- `FastAPI` لخدمة embeddings
+- `BGE-M3` للمتحولات dense
+- `Qdrant` كقاعدة vector
+- نموذج بيانات قانوني: `law` و`article` و`article_chunk`
 
-## 📋 المميزات
+## ما الذي تغير عن النسخة القديمة
 
-- ✅ **Embedding API** - واجهة FastAPI لتوليد embeddings للنصوص العربية
-- ✅ **Arabic Text Normalization** - تطبيع النصوص العربية (إزالة التشكيل، توحيد الألف، إلخ)
-- ✅ **Hierarchical Retrieval** - نظام استرجاع ثلاثي الطبقات (Filename → Title → Content)
-- ✅ **Qdrant Integration** - تخزين واسترجاع فعّال باستخدام Qdrant Vector Database
-- ✅ **BGE-M3 Model** - نموذج متعدد اللغات عالي الجودة (1024-dim vectors)
+تمت إزالة أو استبدال الآتي:
 
----
+- منطق `filename/title/content` الخاص بالفيديو
+- payload القديم المبني على `video_id`, `filename`, `chunk_title`, `chunk_content`
+- collection names القديمة الخاصة بـ Moshrif
+- استرجاع الفيديو كاملًا بترتيبه الطبيعي
+- عتبات `threshold logic` الخاصة بمطابقة اسم الملف والعنوان والمحتوى
+- سكربتات `hierarchical_retrieval` القديمة
 
-## 🏗️ بنية المشروع
+تم استبدال ذلك بـ:
 
-```
+- تطبيع عربي قانوني محافظ وقابل للاختبار
+- indexer قانوني يقرأ `jsonl` أو `json`
+- collection جديدة: `egyptian_laws_v2_legal`
+- استرجاع يعتمد على `article_chunk` للاستدعاء الأولي ثم `article` للسياق النهائي
+- down-ranking / filtering للحالات الملغاة أو النصوص المريبة
+- rerank hook نظيف وقابل للاستبدال
+
+## بنية المشروع
+
+```text
 Embedding-Service/
-├── main.py                    # FastAPI Embedding API
-├── model_loader.py            # تحميل نموذج BGE-M3
-├── config.py                  # إعدادات النموذج
-├── requirements.txt           # المتطلبات
-├── model/
-│   └── bge-m3/               # ملفات النموذج
-├── qdrant_db/                # قاعدة بيانات Qdrant الأساسية
-└── hierarchical_retrieval/   # نظام الاسترجاع الهرمي
-    ├── search_hierarchical.py        # البحث الهرمي
-    ├── build_hierarchical_index.py   # بناء الفهرس
-    ├── normalize_arabic.py           # تطبيع النصوص
-    ├── Moshrif-knowledge-chunks.json # البيانات
-    └── qdrant_db_hierarchical/       # قاعدة البيانات الهرمية
+├── app/
+│   ├── api/                  # FastAPI app + schemas
+│   ├── embeddings/           # embedding service and model loading
+│   ├── indexing/             # dataset parsing and Qdrant indexing
+│   ├── models/               # legal dataclasses
+│   ├── preprocessing/        # legal Arabic normalization and quality checks
+│   ├── retrieval/            # legal retrieval and reranking
+│   └── settings.py           # environment-driven settings
+├── scripts/
+│   ├── build_legal_index.py
+│   ├── demo_legal_queries.py
+│   └── build_and_query_demo.py
+├── tests/
+├── env.example
+├── main.py                   # uvicorn entrypoint
+├── model_loader.py           # backward-compatible embedding shim
+└── requirements.txt
 ```
 
----
+## نموذج البيانات القانوني
 
-## 🚀 التثبيت
+الملف الأساسي الجديد هو:
 
-### 1. استنساخ المستودع
-```bash
-git clone https://github.com/Loay-Wael1/embedding-service-moshrif.git
-cd embedding-service-moshrif
-```
+- `egypt_laws_civil_labor_penal_dataset_v2_expanded.jsonl`
 
-### 2. إنشاء بيئة افتراضية
-```bash
-python -m venv venv
+السجلات الأصلية في الملف تحتوي أساسًا على:
 
-# Windows
-venv\Scripts\activate
+- `article`
+- `article_chunk`
 
-# Linux/Mac
-source venv/bin/activate
-```
+وأثناء الفهرسة يتم توليد سجلات synthetic من النوع:
 
-### 3. تثبيت المتطلبات
+- `law`
+
+### الحقول الأساسية في Qdrant payload
+
+- `id`
+- `record_kind`
+- `parent_id`
+- `legal_domain`
+- `law_name`
+- `law_number`
+- `law_year`
+- `article_number`
+- `title`
+- `content`
+- `summary`
+- `source_url`
+- `status`
+- `status_normalized`
+- `quality_flags`
+- `quality_warnings`
+- `quality_score`
+- `noise_score`
+- `section_level`
+- `document_level`
+- `retrieval_text`
+- `embedding_text`
+- `is_repealed_candidate`
+
+## ملاحظات الجودة على الداتا
+
+الملف الحالي مناسب جدًا لنسخة MVP / demo، لكن توجد احتياطات مضافة في الكود:
+
+- بعض السجلات المدنية والعمالية ما زالت تحمل آثار OCR أو تكسيرات مسافات وترقيم.
+- سجلات supplement الخاصة بقانون العقوبات أنظف عمومًا.
+- `status_normalized` في العينة الحالية قد لا يعكس دائمًا كل إشارات الإلغاء النصية، لذلك يوجد فحص إضافي داخل النص نفسه مثل `ملغاة` و`منسوخ`.
+- هناك `noise_score` و`quality_warnings` محسوبان أثناء الفهرسة ويؤثران على الاسترجاع.
+
+## تطبيع العربية القانونية
+
+التطبيع الجديد يحاول تحسين البحث بدون تدمير الصياغة القانونية:
+
+- إزالة التشكيل
+- توحيد الألف: `إ/أ/آ/ٱ -> ا`
+- تحويل `ى -> ي`
+- تحويل الأرقام العربية والهندية إلى ASCII للحفاظ على مرجعية المواد
+- تنظيف المسافات وعلامات الترقيم بشكل محافظ
+- إزالة `tatweel`
+- اكتشاف مؤشرات OCR بدل تنفيذ إصلاحات عدوانية قد تغيّر النص القانوني
+
+## تشغيل خدمة الـ Embedding
+
+### التثبيت
+
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. تحميل النموذج
-قم بتحميل نموذج [BGE-M3](https://huggingface.co/BAAI/bge-m3) ووضعه في مجلد `model/bge-m3/`
-
----
-
-## 💻 الاستخدام
-
-### تشغيل خدمة الـ Embedding API
+### تشغيل الخدمة
 
 ```bash
-uvicorn main:app --reload
+uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
-الخدمة ستعمل على: `http://127.0.0.1:8000`
+### Endpoints
 
-### الـ Endpoints
-
-| Endpoint | Method | الوصف |
-|----------|--------|-------|
-| `/health` | GET | فحص حالة الخدمة |
-| `/embed` | POST | توليد embedding لنص |
-
-### مثال استخدام الـ API
-
-```python
-import requests
-
-response = requests.post(
-    "http://127.0.0.1:8000/embed",
-    json={"text": "كيف أربي طفلي؟"}
-)
-
-embedding = response.json()["embedding"]
-print(f"Vector size: {len(embedding)}")  # 1024
-```
-
----
-
-## 🔍 نظام الاسترجاع الهرمي (Hierarchical Retrieval)
-
-### الفكرة
-نظام ذكي يبحث على 3 مستويات بأولويات مختلفة:
-
-| الطبقة | Threshold | السلوك |
-|--------|-----------|--------|
-| **Filename** | 0.60 | إذا طابق اسم الملف، يرجع كل chunks الفيديو بترتيبها الطبيعي |
-| **Title** | 0.65 | إذا طابق العنوان، يرجع أفضل 5 chunks من كل الفيديوهات |
-| **Content** | 0.55 | إذا طابق المحتوى، يرجع الـ chunk المطابق فقط |
-
-### بناء الفهرس
+#### `GET /health`
 
 ```bash
-cd hierarchical_retrieval
-python build_hierarchical_index.py
+curl http://127.0.0.1:8000/health
 ```
 
-### البحث
+#### `GET /info`
 
-```python
-from hierarchical_retrieval.search_hierarchical import search_query
-
-result = search_query("هل الذكاء الاصطناعي هيستبدل المبرمجين؟", top_k=5)
-
-print(f"Mode: {result['retrieval_mode']}")
-print(f"Scores: {result['scores']}")
-for chunk in result['results']:
-    print(f"- {chunk['chunk_title']}")
+```bash
+curl http://127.0.0.1:8000/info
 ```
 
-### مثال الـ Output
+#### `POST /embed`
+
+```bash
+curl -X POST http://127.0.0.1:8000/embed ^
+  -H "Content-Type: application/json" ^
+  -d "{\"text\":\"ما هي أحكام عقد العمل؟\",\"mode\":\"query\",\"normalize\":true,\"return_dense\":true,\"return_sparse\":false}"
+```
+
+#### `POST /embed/batch`
+
+```bash
+curl -X POST http://127.0.0.1:8000/embed/batch ^
+  -H "Content-Type: application/json" ^
+  -d "{\"texts\":[\"عقد العمل\",\"انعقاد العقد\"],\"mode\":\"document\",\"normalize\":true,\"return_dense\":true,\"return_sparse\":false}"
+```
+
+### شكل الاستجابة
 
 ```json
 {
-  "query": "هل الذكاء الاصطناعي هيستبدل المبرمجين؟",
-  "retrieval_mode": "by_filename",
-  "scores": {
-    "title": 0.5234,
-    "filename": 0.7821,
-    "content": 0.6123
-  },
+  "model": "./model/bge-m3",
+  "dim": 1024,
+  "mode": "document",
+  "normalized": true,
+  "sparse_available": false,
+  "warnings": [],
   "results": [
     {
-      "video_id": 15,
-      "filename": "الذكاء الاصطناعي والبرمجة",
-      "chunk_id": 1,
-      "chunk_title": "مقدمة",
-      "chunk_content": "..."
+      "text": "عقد العمل",
+      "normalized_text": "عقد العمل",
+      "dense": [0.1, 0.2],
+      "sparse": null,
+      "metadata": {
+        "mode": "document"
+      }
     }
   ]
 }
 ```
 
----
+## بناء الفهرس القانوني
 
-## ⚙️ الإعدادات
+### الإعدادات
 
-### config.py
-```python
-MODEL_NAME = "./model/bge-m3"  # مسار النموذج
-DEVICE = "cpu"                  # أو "cuda" للـ GPU
+انسخ `env.example` أو اضبط المتغيرات يدويًا. أهمها:
+
+- `LEGAL_DATASET_PATH`
+- `QDRANT_PATH`
+- `QDRANT_COLLECTION`
+
+### البناء
+
+```bash
+python scripts/build_legal_index.py
 ```
 
-### Thresholds (في search_hierarchical.py)
-```python
-TITLE_THRESHOLD = 0.65
-FILENAME_THRESHOLD = 0.60
-CONTENT_THRESHOLD = 0.55
+هذا السكربت:
+
+- يقرأ `jsonl` أو `json`
+- يبني سجلات `article` و`article_chunk`
+- يضيف سجلات `law` synthetic
+- ينشئ collection جديدة
+- يضيف payload indexes للفلترة
+- يخزن vectors dense في Qdrant
+
+## كيف يعمل الاسترجاع الآن
+
+خطوات الاسترجاع القانونية أصبحت:
+
+1. تحويل الاستعلام إلى embedding في وضع `query`
+2. البحث أولًا في `article_chunk` لتحسين recall
+3. البحث أيضًا في `article` و`law`
+4. توسيع نتائج الـ chunks إلى `parent article`
+5. دمج النتائج وإزالة التكرار على مستوى المادة
+6. تطبيق reranking heuristic
+7. إرجاع المادة القانونية النهائية مع `supporting_chunks`
+
+### الفلاتر المدعومة
+
+- `legal_domain`
+- `law_number`
+- `law_year`
+- `status_normalized`
+- `exclude_repealed`
+
+### التعامل مع المواد الملغاة أو النصوص المريبة
+
+- إذا كانت `status_normalized != current` يتم وسم السجل على أنه `is_repealed_candidate`
+- إذا ظهرت مؤشرات نصية مثل `ملغاة` أو `منسوخ` يتم وسمه أيضًا
+- يمكن إما استبعاده أو تنزيل ترتيبه
+- إذا ظهرت ضوضاء OCR، يتم احتساب `noise_score` وإنقاص الوزن أثناء الترتيب
+
+## سكربتات الديمو
+
+### بناء الفهرس فقط
+
+```bash
+python scripts/build_legal_index.py
 ```
 
----
+### تشغيل استعلامات ديمو على فهرس موجود
 
-## 📊 تطبيع النصوص العربية
+```bash
+python scripts/demo_legal_queries.py
+```
 
-الخدمة تقوم تلقائياً بتطبيع النصوص العربية قبل توليد الـ embedding:
+### بناء الفهرس ثم تشغيل ديمو كامل
 
-1. **إزالة التشكيل** - حذف الحركات (فتحة، ضمة، كسرة، إلخ)
-2. **توحيد الألف** - تحويل (إ، أ، آ) إلى (ا)
-3. **توحيد الياء** - تحويل (ى) إلى (ي)
-4. **تنظيف المسافات** - إزالة الشرطات والمسافات الزائدة
+```bash
+python scripts/build_and_query_demo.py
+```
 
----
+## التشغيل في Hugging Face / Docker / VPS
 
-## 🛠️ المتطلبات التقنية
+### Hugging Face Spaces
 
-- Python 3.10+
-- PyTorch 2.0+
-- ~2GB RAM للنموذج
-- GPU اختياري (يعمل على CPU)
+- استخدم `uvicorn main:app --host 0.0.0.0 --port 7860`
+- خزن dataset path في Secret أو mount خارجي
+- اجعل `EMBEDDING_DEVICE=cpu` إذا لم يتوفر GPU
 
----
+### Docker
 
-## 📝 License
+- مرر `LEGAL_DATASET_PATH` و`QDRANT_PATH` عبر environment variables
+- اعمل volume mount لـ dataset وQdrant path
+- لو كان الموديل محليًا، mount مجلد `model/bge-m3`
 
-MIT License
+### VPS منخفض الحركة
 
----
+- شغل خدمة واحدة لـ FastAPI
+- استخدم Qdrant local path للـ demo أو low traffic
+- خزن الفهرس على disk path ثابت
+- راقب استهلاك الذاكرة عند أول تحميل للموديل
 
-## 👨‍💻 المطور
+## ملاحظات الهجرة من النظام القديم
 
-[Loay Wael](https://github.com/Loay-Wael1)
+- `video_id` لم يعد موجودًا في الـ payload الجديد
+- `filename` لم يعد يستخدم كإشارة استرجاع
+- `chunk_title/chunk_content` أصبحا `title/content`
+- `retrieval_mode=by_filename/by_title/by_content` أزيل بالكامل
+- الاسترجاع النهائي الآن article-centric وليس video-centric
+- `hierarchical_retrieval/*` لم يعد جزءًا من مسار التشغيل
+
+## الاختبارات
+
+```bash
+pytest
+```
+
+الاختبارات الحالية تغطي:
+
+- تطبيع العربية
+- عقد `/embed` و`/embed/batch`
+- بناء الفهرس القانوني
+- parent-child expansion
+- فلترة السجلات الملغاة
+- بنية مخرجات الاسترجاع

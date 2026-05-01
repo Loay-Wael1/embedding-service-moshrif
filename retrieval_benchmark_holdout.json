@@ -1,0 +1,373 @@
+{
+  "benchmark_name": "retrieval_benchmark_holdout",
+  "version": "1.0",
+  "description": "Holdout benchmark for Egyptian legal retrieval. Keep this split for final comparison after tuning on dev.",
+  "cases": [
+    {
+      "id": "labor_h_001",
+      "query": "ما حقوق العامل عند إنهاء خدمته؟",
+      "domain": "labor_law",
+      "query_type": "general",
+      "expected": {
+        "expected_domain": "labor_law",
+        "expected_law_name": "قانون العمل المصري",
+        "expected_article_numbers": [],
+        "expected_keywords": ["العامل", "إنهاء", "خدمة"],
+        "top_k_success": 3
+      },
+      "notes": "يجب أن ترتفع مواد إنهاء الخدمة وآثاره."
+    },
+    {
+      "id": "labor_h_002",
+      "query": "ما ضوابط تشغيل الأحداث؟",
+      "domain": "labor_law",
+      "query_type": "specific",
+      "expected": {
+        "expected_domain": "labor_law",
+        "expected_law_name": "قانون العمل المصري",
+        "expected_article_numbers": [],
+        "expected_keywords": ["تشغيل", "الأحداث"],
+        "top_k_success": 3
+      },
+      "notes": "يجب أن تظهر مواد تشغيل الأطفال أو الأحداث."
+    },
+    {
+      "id": "labor_h_003",
+      "query": "ما هي أحكام الوقف عن العمل؟",
+      "domain": "labor_law",
+      "query_type": "tricky",
+      "expected": {
+        "expected_domain": "labor_law",
+        "expected_law_name": "قانون العمل المصري",
+        "expected_article_numbers": [],
+        "expected_keywords": ["وقف", "العمل"],
+        "top_k_success": 3
+      },
+      "notes": "يجب أن تتصدر مواد الوقف والجزاءات المرتبطة به."
+    },
+    {
+      "id": "labor_h_004",
+      "query": "ما أحكام الأجر الإضافي؟",
+      "domain": "labor_law",
+      "query_type": "specific",
+      "expected": {
+        "expected_domain": "labor_law",
+        "expected_law_name": "قانون العمل المصري",
+        "expected_article_numbers": [],
+        "expected_keywords": ["الأجر الإضافي", "أجر", "إضافي"],
+        "top_k_success": 3
+      },
+      "notes": "يجب أن تظهر مواد العمل الإضافي واستحقاق المقابل."
+    },
+    {
+      "id": "labor_h_005",
+      "query": "ما هي التزامات العامل الأساسية؟",
+      "domain": "labor_law",
+      "query_type": "general",
+      "expected": {
+        "expected_domain": "labor_law",
+        "expected_law_name": "قانون العمل المصري",
+        "expected_article_numbers": [],
+        "expected_keywords": ["التزامات", "العامل"],
+        "top_k_success": 3
+      },
+      "notes": "يجب أن تلتقط المواد الخاصة بواجبات العامل."
+    },
+
+    {
+      "id": "civil_h_001",
+      "query": "ما أثر الخطأ والضرر في المسؤولية المدنية؟",
+      "domain": "civil_law",
+      "query_type": "specific",
+      "expected": {
+        "expected_domain": "civil_law",
+        "expected_law_name": "القانون المدني المصري",
+        "expected_article_numbers": [],
+        "expected_keywords": ["الخطأ", "الضرر", "المسؤولية المدنية"],
+        "top_k_success": 3
+      },
+      "notes": "مواد المسؤولية والتعويض يجب أن تكون في القمة."
+    },
+    {
+      "id": "civil_h_002",
+      "query": "ما أحكام الوعد بالتعاقد؟",
+      "domain": "civil_law",
+      "query_type": "tricky",
+      "expected": {
+        "expected_domain": "civil_law",
+        "expected_law_name": "القانون المدني المصري",
+        "expected_article_numbers": [],
+        "expected_keywords": ["الوعد بالتعاقد"],
+        "top_k_success": 3
+      },
+      "notes": "لا ينبغي أن تضيع داخل مواد انعقاد العقد العامة."
+    },
+    {
+      "id": "civil_h_003",
+      "query": "متى يكون العقد قابلا للإبطال؟",
+      "domain": "civil_law",
+      "query_type": "specific",
+      "expected": {
+        "expected_domain": "civil_law",
+        "expected_law_name": "القانون المدني المصري",
+        "expected_article_numbers": [],
+        "expected_keywords": ["قابلا للإبطال", "العقد", "إبطال"],
+        "top_k_success": 3
+      },
+      "notes": "يجب أن تظهر مواد الإبطال والعيوب الإرادية."
+    },
+    {
+      "id": "civil_h_004",
+      "query": "ما أحكام الفسخ الاتفاقي؟",
+      "domain": "civil_law",
+      "query_type": "tricky",
+      "expected": {
+        "expected_domain": "civil_law",
+        "expected_law_name": "القانون المدني المصري",
+        "expected_article_numbers": [],
+        "expected_keywords": ["الفسخ الاتفاقي", "فسخ"],
+        "top_k_success": 3
+      },
+      "notes": "يجب التمييز بين الفسخ القضائي والاتفاقي."
+    },
+    {
+      "id": "civil_h_005",
+      "query": "ما أحكام الالتزام الشرطي؟",
+      "domain": "civil_law",
+      "query_type": "tricky",
+      "expected": {
+        "expected_domain": "civil_law",
+        "expected_law_name": "القانون المدني المصري",
+        "expected_article_numbers": [],
+        "expected_keywords": ["الالتزام", "الشرط"],
+        "top_k_success": 3
+      },
+      "notes": "يجب أن تظهر المواد الخاصة بالشرط الواقف أو الفاسخ."
+    },
+
+    {
+      "id": "criminal_h_001",
+      "query": "ما هي جريمة خيانة الأمانة وعقوبتها؟",
+      "domain": "criminal_law",
+      "query_type": "specific",
+      "expected": {
+        "expected_domain": "criminal_law",
+        "expected_law_name": "قانون العقوبات المصري",
+        "expected_article_numbers": [],
+        "expected_keywords": ["خيانة الأمانة", "عقوبة"],
+        "accepted_topic_terms": ["خيانة الأمانة"],
+        "top_k_success": 3
+      },
+      "notes": "يجب ألا تُخلط مع السرقة أو النصب."
+    },
+    {
+      "id": "criminal_h_002",
+      "query": "ما المقصود بجريمة الاختلاس؟",
+      "domain": "criminal_law",
+      "query_type": "general",
+      "expected": {
+        "expected_domain": "criminal_law",
+        "expected_law_name": "قانون العقوبات المصري",
+        "expected_article_numbers": [],
+        "expected_keywords": ["الاختلاس"],
+        "accepted_topic_terms": ["الاختلاس"],
+        "top_k_success": 3
+      },
+      "notes": "ينبغي أن تكون النتائج من جرائم الأموال العامة أو الاختلاس."
+    },
+    {
+      "id": "criminal_h_003",
+      "query": "ما هي عقوبة التزوير في المحررات؟",
+      "domain": "criminal_law",
+      "query_type": "tricky",
+      "expected": {
+        "expected_domain": "criminal_law",
+        "expected_law_name": "قانون العقوبات المصري",
+        "expected_article_numbers": [],
+        "expected_keywords": ["التزوير", "المحررات", "عقوبة"],
+        "accepted_topic_terms": ["التزوير", "المحررات"],
+        "top_k_success": 3
+      },
+      "notes": "يجب أن تظهر مواد التزوير لا جرائم أخرى قريبة."
+    },
+    {
+      "id": "criminal_h_004",
+      "query": "ما هي عقوبة الرشوة للموظف العام؟",
+      "domain": "criminal_law",
+      "query_type": "specific",
+      "expected": {
+        "expected_domain": "criminal_law",
+        "expected_law_name": "قانون العقوبات المصري",
+        "expected_article_numbers": [],
+        "expected_keywords": ["الرشوة", "الموظف العام", "عقوبة"],
+        "accepted_topic_terms": ["الرشوة", "الموظف العام"],
+        "top_k_success": 3
+      },
+      "notes": "يجب أن تتقدم مواد الرشوة الوظيفية."
+    },
+    {
+      "id": "criminal_h_005",
+      "query": "ما أحكام العود في الجريمة؟",
+      "domain": "criminal_law",
+      "query_type": "general",
+      "expected": {
+        "expected_domain": "criminal_law",
+        "expected_law_name": "قانون العقوبات المصري",
+        "expected_article_numbers": [],
+        "expected_keywords": ["العود", "الجريمة"],
+        "accepted_topic_terms": ["العود"],
+        "top_k_success": 3
+      },
+      "notes": "مواد العود يجب أن تظهر في المراكز الأولى."
+    },
+
+    {
+      "id": "constitutional_h_001",
+      "query": "ما هي المساواة أمام القانون؟",
+      "domain": "constitutional_law",
+      "query_type": "specific",
+      "expected": {
+        "expected_domain": "constitutional_law",
+        "expected_law_name": "دستور جمهورية مصر العربية",
+        "expected_article_numbers": ["53"],
+        "expected_keywords": ["المساواة", "القانون"],
+        "top_k_success": 3
+      },
+      "notes": "يفضل أن تكون المادة 53 أو ما يقاربها في القمة."
+    },
+    {
+      "id": "constitutional_h_002",
+      "query": "ما هي حرية الصحافة والإعلام؟",
+      "domain": "constitutional_law",
+      "query_type": "specific",
+      "expected": {
+        "expected_domain": "constitutional_law",
+        "expected_law_name": "دستور جمهورية مصر العربية",
+        "expected_article_numbers": [],
+        "expected_keywords": ["الصحافة", "الإعلام", "حرية"],
+        "top_k_success": 3
+      },
+      "notes": "ينبغي أن تظهر مواد الصحافة أو الإعلام أو التعبير."
+    },
+    {
+      "id": "constitutional_h_003",
+      "query": "ما هو الحق في تكوين الجمعيات؟",
+      "domain": "constitutional_law",
+      "query_type": "specific",
+      "expected": {
+        "expected_domain": "constitutional_law",
+        "expected_law_name": "دستور جمهورية مصر العربية",
+        "expected_article_numbers": ["75"],
+        "expected_keywords": ["تكوين الجمعيات", "الجمعيات"],
+        "top_k_success": 3
+      },
+      "notes": "يفضل ظهور المادة 75 أو نتيجة مكافئة."
+    },
+    {
+      "id": "constitutional_h_004",
+      "query": "ما هي مبادئ الدستور؟",
+      "domain": "constitutional_law",
+      "query_type": "tricky",
+      "expected": {
+        "expected_domain": "constitutional_law",
+        "expected_law_name": "دستور جمهورية مصر العربية",
+        "expected_article_numbers": [],
+        "expected_keywords": ["مبادئ الدستور", "الديباجة"],
+        "accepted_topic_terms": ["مبادئ الدستور", "الديباجة"],
+        "accepted_section_terms": ["الديباجة"],
+        "top_k_success": 3
+      },
+      "notes": "هنا يمكن قبول الديباجة ضمن النتائج الأولى."
+    },
+    {
+      "id": "constitutional_h_005",
+      "query": "ما هو الحق في المعلومات؟",
+      "domain": "constitutional_law",
+      "query_type": "specific",
+      "expected": {
+        "expected_domain": "constitutional_law",
+        "expected_law_name": "دستور جمهورية مصر العربية",
+        "expected_article_numbers": ["68"],
+        "expected_keywords": ["الحق في المعلومات", "الوثائق الرسمية"],
+        "top_k_success": 3
+      },
+      "notes": "المادة 68 أو ما يقاربها يجب أن تتصدر."
+    },
+
+    {
+      "id": "ood_h_001",
+      "query": "ما هي أحكام الطلاق؟",
+      "domain": "out_of_domain",
+      "query_type": "out_of_domain",
+      "expected": {
+        "expected_domain": "out_of_domain",
+        "expected_law_name": null,
+        "expected_article_numbers": [],
+        "expected_keywords": ["الطلاق"],
+        "top_k_success": 3,
+        "expected_behavior": "reject_or_warn"
+      },
+      "notes": "ليس ضمن corpus الحالي."
+    },
+    {
+      "id": "ood_h_002",
+      "query": "ما هي حضانة الأطفال بعد الطلاق؟",
+      "domain": "out_of_domain",
+      "query_type": "out_of_domain",
+      "expected": {
+        "expected_domain": "out_of_domain",
+        "expected_law_name": null,
+        "expected_article_numbers": [],
+        "expected_keywords": ["حضانة", "الأطفال"],
+        "top_k_success": 3,
+        "expected_behavior": "reject_or_warn"
+      },
+      "notes": "سؤال أسرة خارج corpus."
+    },
+    {
+      "id": "ood_h_003",
+      "query": "ما هي نفقة المتعة؟",
+      "domain": "out_of_domain",
+      "query_type": "out_of_domain",
+      "expected": {
+        "expected_domain": "out_of_domain",
+        "expected_law_name": null,
+        "expected_article_numbers": [],
+        "expected_keywords": ["نفقة المتعة"],
+        "top_k_success": 3,
+        "expected_behavior": "reject_or_warn"
+      },
+      "notes": "خارج تغطية corpus الحالي."
+    },
+    {
+      "id": "ood_h_004",
+      "query": "كيف يثبت النسب؟",
+      "domain": "out_of_domain",
+      "query_type": "out_of_domain",
+      "expected": {
+        "expected_domain": "out_of_domain",
+        "expected_law_name": null,
+        "expected_article_numbers": [],
+        "expected_keywords": ["النسب"],
+        "top_k_success": 3,
+        "expected_behavior": "reject_or_warn"
+      },
+      "notes": "ليس ضمن corpus الحالي."
+    },
+    {
+      "id": "ood_h_005",
+      "query": "ما هو سن الحضانة؟",
+      "domain": "out_of_domain",
+      "query_type": "out_of_domain",
+      "expected": {
+        "expected_domain": "out_of_domain",
+        "expected_law_name": null,
+        "expected_article_numbers": [],
+        "expected_keywords": ["سن الحضانة"],
+        "top_k_success": 3,
+        "expected_behavior": "reject_or_warn"
+      },
+      "notes": "خارج نطاق corpus الحالي."
+    }
+  ]
+}

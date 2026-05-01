@@ -1,0 +1,3642 @@
+{
+  "benchmark_name": "retrieval_benchmark_holdout",
+  "benchmark_version": "1.0",
+  "evaluated_count": 25,
+  "top_k": 5,
+  "summary": {
+    "exact_top1_domain_accuracy": 0.8,
+    "exact_top3_domain_hit_rate": 0.95,
+    "exact_top1_law_accuracy": 0.8,
+    "exact_top3_law_hit_rate": 0.95,
+    "topk_expected_keyword_hit_rate": 0.5833,
+    "accepted_topic_top1_hit_rate": 0.5,
+    "accepted_topic_topk_hit_rate": 0.6667,
+    "accepted_section_top1_hit_rate": 1.0,
+    "accepted_section_topk_hit_rate": 1.0,
+    "out_of_domain_reject_rate": 1.0,
+    "strict_pass_rate": 0.72,
+    "benchmark_window_pass_rate": 0.88,
+    "failure_categories": {
+      "criminal_offense_miss": 2,
+      "generic_article_bias": 1,
+      "wrong_domain": 4
+    },
+    "by_domain": {
+      "civil_law": {
+        "count": 5,
+        "strict_pass_rate": 0.4,
+        "benchmark_window_pass_rate": 0.8
+      },
+      "constitutional_law": {
+        "count": 5,
+        "strict_pass_rate": 1.0,
+        "benchmark_window_pass_rate": 1.0
+      },
+      "criminal_law": {
+        "count": 5,
+        "strict_pass_rate": 0.4,
+        "benchmark_window_pass_rate": 0.6
+      },
+      "labor_law": {
+        "count": 5,
+        "strict_pass_rate": 0.8,
+        "benchmark_window_pass_rate": 1.0
+      },
+      "out_of_domain": {
+        "count": 5,
+        "strict_pass_rate": 1.0,
+        "benchmark_window_pass_rate": 1.0
+      }
+    },
+    "by_query_type": {
+      "general": {
+        "count": 4,
+        "strict_pass_rate": 0.75,
+        "benchmark_window_pass_rate": 0.75
+      },
+      "out_of_domain": {
+        "count": 5,
+        "strict_pass_rate": 1.0,
+        "benchmark_window_pass_rate": 1.0
+      },
+      "specific": {
+        "count": 10,
+        "strict_pass_rate": 0.8,
+        "benchmark_window_pass_rate": 1.0
+      },
+      "tricky": {
+        "count": 6,
+        "strict_pass_rate": 0.3333,
+        "benchmark_window_pass_rate": 0.6667
+      }
+    }
+  },
+  "cases": [
+    {
+      "id": "labor_h_001",
+      "domain": "labor_law",
+      "query_type": "general",
+      "query": "ما حقوق العامل عند إنهاء خدمته؟",
+      "passed": true,
+      "evaluation_reason": "top1 domain matched expected domain 'labor_law'; top1 law matched expected law; top1 keyword hit ratio=0.6667",
+      "why_passed": [
+        "top1 domain matched expected domain 'labor_law'",
+        "top1 law matched expected law",
+        "top1 keyword hit ratio=0.6667"
+      ],
+      "why_failed": [],
+      "failure_category": null,
+      "expected": {
+        "expected_domain": "labor_law",
+        "expected_law_name": "قانون العمل المصري",
+        "expected_article_numbers": [],
+        "expected_keywords": [
+          "العامل",
+          "إنهاء",
+          "خدمة"
+        ],
+        "top_k_success": 3
+      },
+      "metrics": {
+        "exact_top1_domain_accuracy": true,
+        "exact_top3_domain_hit_rate": true,
+        "exact_top1_law_accuracy": true,
+        "exact_top3_law_hit_rate": true,
+        "top1_expected_keyword_hit_rate": 0.6667,
+        "topk_expected_keyword_hit_rate": 1.0,
+        "top1_expected_article_match": null,
+        "topk_expected_article_hit": null,
+        "top1_accepted_topic_hit": null,
+        "topk_accepted_topic_hit": null,
+        "top1_accepted_topic_match_rate": null,
+        "topk_accepted_topic_match_rate": null,
+        "top1_accepted_section_hit": null,
+        "topk_accepted_section_hit": null,
+        "top1_accepted_section_match_rate": null,
+        "topk_accepted_section_match_rate": null,
+        "top1_context_success": true,
+        "topk_context_hit": true,
+        "benchmark_window_domain_hit": true,
+        "benchmark_window_law_hit": true,
+        "benchmark_window_passed": true,
+        "out_of_domain_reject_rate": null
+      },
+      "top_result": {
+        "title": "المادة 173 - قانون العمل المصري",
+        "article_number": "173",
+        "law_name": "قانون العمل المصري",
+        "legal_domain": "labor_law",
+        "score": 0.736667,
+        "rerank_score": 1.062667,
+        "section_level": "الكتاب الثالث > الباب الأول",
+        "quality_warnings": [],
+        "rank_explanation": [
+          "specific_query_bias",
+          "supporting_chunks:2",
+          "general_article_penalty",
+          "domain_alignment_boost"
+        ]
+      },
+      "top3_results": [
+        {
+          "title": "المادة 173 - قانون العمل المصري",
+          "article_number": "173",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.736667,
+          "rerank_score": 1.062667,
+          "section_level": "الكتاب الثالث > الباب الأول",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:2",
+            "general_article_penalty",
+            "domain_alignment_boost"
+          ]
+        },
+        {
+          "title": "المادة 241 - قانون العمل المصري",
+          "article_number": "241",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.642909,
+          "rerank_score": 1.036509,
+          "section_level": "الكتاب الثالث > الباب الثال > الفصل فى النزاع خلال خمسة وأربعين يوم",
+          "quality_warnings": [
+            "broken_punctuation"
+          ],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:2",
+            "domain_alignment_boost"
+          ]
+        },
+        {
+          "title": "المادة 92 - قانون العمل المصري",
+          "article_number": "92",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.61,
+          "rerank_score": 1.004,
+          "section_level": "الكتاب الثالث > الباب الأول",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "strong_summary_overlap",
+            "supporting_chunks:2",
+            "general_article_penalty",
+            "domain_alignment_boost"
+          ]
+        }
+      ],
+      "target_window_results": [
+        {
+          "title": "المادة 173 - قانون العمل المصري",
+          "article_number": "173",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.736667,
+          "rerank_score": 1.062667,
+          "section_level": "الكتاب الثالث > الباب الأول",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:2",
+            "general_article_penalty",
+            "domain_alignment_boost"
+          ]
+        },
+        {
+          "title": "المادة 241 - قانون العمل المصري",
+          "article_number": "241",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.642909,
+          "rerank_score": 1.036509,
+          "section_level": "الكتاب الثالث > الباب الثال > الفصل فى النزاع خلال خمسة وأربعين يوم",
+          "quality_warnings": [
+            "broken_punctuation"
+          ],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:2",
+            "domain_alignment_boost"
+          ]
+        },
+        {
+          "title": "المادة 92 - قانون العمل المصري",
+          "article_number": "92",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.61,
+          "rerank_score": 1.004,
+          "section_level": "الكتاب الثالث > الباب الأول",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "strong_summary_overlap",
+            "supporting_chunks:2",
+            "general_article_penalty",
+            "domain_alignment_boost"
+          ]
+        }
+      ],
+      "notes": "يجب أن ترتفع مواد إنهاء الخدمة وآثاره."
+    },
+    {
+      "id": "labor_h_002",
+      "domain": "labor_law",
+      "query_type": "specific",
+      "query": "ما ضوابط تشغيل الأحداث؟",
+      "passed": false,
+      "evaluation_reason": "top1 domain 'criminal_law' did not match expected domain 'labor_law'; top1 law 'قانون العقوبات المصري' did not match expected law 'قانون العمل المصري'; expected match appeared within target window but not at top1",
+      "why_passed": [
+        "top1 keyword hit ratio=0.0"
+      ],
+      "why_failed": [
+        "top1 domain 'criminal_law' did not match expected domain 'labor_law'",
+        "top1 law 'قانون العقوبات المصري' did not match expected law 'قانون العمل المصري'",
+        "expected match appeared within target window but not at top1"
+      ],
+      "failure_category": "wrong_domain",
+      "expected": {
+        "expected_domain": "labor_law",
+        "expected_law_name": "قانون العمل المصري",
+        "expected_article_numbers": [],
+        "expected_keywords": [
+          "تشغيل",
+          "الأحداث"
+        ],
+        "top_k_success": 3
+      },
+      "metrics": {
+        "exact_top1_domain_accuracy": false,
+        "exact_top3_domain_hit_rate": true,
+        "exact_top1_law_accuracy": false,
+        "exact_top3_law_hit_rate": true,
+        "top1_expected_keyword_hit_rate": 0.0,
+        "topk_expected_keyword_hit_rate": 0.5,
+        "top1_expected_article_match": null,
+        "topk_expected_article_hit": null,
+        "top1_accepted_topic_hit": null,
+        "topk_accepted_topic_hit": null,
+        "top1_accepted_topic_match_rate": null,
+        "topk_accepted_topic_match_rate": null,
+        "top1_accepted_section_hit": null,
+        "topk_accepted_section_hit": null,
+        "top1_accepted_section_match_rate": null,
+        "topk_accepted_section_match_rate": null,
+        "top1_context_success": true,
+        "topk_context_hit": true,
+        "benchmark_window_domain_hit": true,
+        "benchmark_window_law_hit": true,
+        "benchmark_window_passed": true,
+        "out_of_domain_reject_rate": null
+      },
+      "top_result": {
+        "title": "المادة 375 - قانون العقوبات المصري",
+        "article_number": "375",
+        "law_name": "قانون العقوبات المصري",
+        "legal_domain": "criminal_law",
+        "score": 0.57,
+        "rerank_score": 0.74,
+        "section_level": "قانون العقوبات المصري",
+        "quality_warnings": [],
+        "rank_explanation": [
+          "specific_query_bias",
+          "supporting_chunks:2"
+        ]
+      },
+      "top3_results": [
+        {
+          "title": "المادة 375 - قانون العقوبات المصري",
+          "article_number": "375",
+          "law_name": "قانون العقوبات المصري",
+          "legal_domain": "criminal_law",
+          "score": 0.57,
+          "rerank_score": 0.74,
+          "section_level": "قانون العقوبات المصري",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:2"
+          ]
+        },
+        {
+          "title": "المادة 63 - قانون العقوبات المصري",
+          "article_number": "63",
+          "law_name": "قانون العقوبات المصري",
+          "legal_domain": "criminal_law",
+          "score": 0.55,
+          "rerank_score": 0.7,
+          "section_level": "الباب التاسع: أسباب الإباحة وموانع العقاب",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:1"
+          ]
+        },
+        {
+          "title": "المادة 121 - قانون العمل المصري",
+          "article_number": "121",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.57,
+          "rerank_score": 0.64,
+          "section_level": "الكتاب الثالث > الباب الأول",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:2",
+            "general_article_penalty"
+          ]
+        }
+      ],
+      "target_window_results": [
+        {
+          "title": "المادة 375 - قانون العقوبات المصري",
+          "article_number": "375",
+          "law_name": "قانون العقوبات المصري",
+          "legal_domain": "criminal_law",
+          "score": 0.57,
+          "rerank_score": 0.74,
+          "section_level": "قانون العقوبات المصري",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:2"
+          ]
+        },
+        {
+          "title": "المادة 63 - قانون العقوبات المصري",
+          "article_number": "63",
+          "law_name": "قانون العقوبات المصري",
+          "legal_domain": "criminal_law",
+          "score": 0.55,
+          "rerank_score": 0.7,
+          "section_level": "الباب التاسع: أسباب الإباحة وموانع العقاب",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:1"
+          ]
+        },
+        {
+          "title": "المادة 121 - قانون العمل المصري",
+          "article_number": "121",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.57,
+          "rerank_score": 0.64,
+          "section_level": "الكتاب الثالث > الباب الأول",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:2",
+            "general_article_penalty"
+          ]
+        }
+      ],
+      "notes": "يجب أن تظهر مواد تشغيل الأطفال أو الأحداث."
+    },
+    {
+      "id": "labor_h_003",
+      "domain": "labor_law",
+      "query_type": "tricky",
+      "query": "ما هي أحكام الوقف عن العمل؟",
+      "passed": true,
+      "evaluation_reason": "top1 domain matched expected domain 'labor_law'; top1 law matched expected law; top1 keyword hit ratio=0.5",
+      "why_passed": [
+        "top1 domain matched expected domain 'labor_law'",
+        "top1 law matched expected law",
+        "top1 keyword hit ratio=0.5"
+      ],
+      "why_failed": [],
+      "failure_category": null,
+      "expected": {
+        "expected_domain": "labor_law",
+        "expected_law_name": "قانون العمل المصري",
+        "expected_article_numbers": [],
+        "expected_keywords": [
+          "وقف",
+          "العمل"
+        ],
+        "top_k_success": 3
+      },
+      "metrics": {
+        "exact_top1_domain_accuracy": true,
+        "exact_top3_domain_hit_rate": true,
+        "exact_top1_law_accuracy": true,
+        "exact_top3_law_hit_rate": true,
+        "top1_expected_keyword_hit_rate": 0.5,
+        "topk_expected_keyword_hit_rate": 1.0,
+        "top1_expected_article_match": null,
+        "topk_expected_article_hit": null,
+        "top1_accepted_topic_hit": null,
+        "topk_accepted_topic_hit": null,
+        "top1_accepted_topic_match_rate": null,
+        "topk_accepted_topic_match_rate": null,
+        "top1_accepted_section_hit": null,
+        "topk_accepted_section_hit": null,
+        "top1_accepted_section_match_rate": null,
+        "topk_accepted_section_match_rate": null,
+        "top1_context_success": true,
+        "topk_context_hit": true,
+        "benchmark_window_domain_hit": true,
+        "benchmark_window_law_hit": true,
+        "benchmark_window_passed": true,
+        "out_of_domain_reject_rate": null
+      },
+      "top_result": {
+        "title": "المادة 296 - قانون العمل المصري",
+        "article_number": "296",
+        "law_name": "قانون العمل المصري",
+        "legal_domain": "labor_law",
+        "score": 0.589608,
+        "rerank_score": 0.986275,
+        "section_level": "الكتاب الخامس > الباب الثانى",
+        "quality_warnings": [],
+        "rank_explanation": [
+          "specific_query_bias",
+          "supporting_chunks:2"
+        ]
+      },
+      "top3_results": [
+        {
+          "title": "المادة 296 - قانون العمل المصري",
+          "article_number": "296",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.589608,
+          "rerank_score": 0.986275,
+          "section_level": "الكتاب الخامس > الباب الثانى",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:2"
+          ]
+        },
+        {
+          "title": "المادة 145 - قانون العمل المصري",
+          "article_number": "145",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.716667,
+          "rerank_score": 0.953334,
+          "section_level": "الكتاب الثالث > الباب الأول",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:1",
+            "general_article_penalty"
+          ]
+        },
+        {
+          "title": "المادة 147 - قانون العمل المصري",
+          "article_number": "147",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.427,
+          "rerank_score": 0.717933,
+          "section_level": "الكتاب الثالث > الباب الأول",
+          "quality_warnings": [
+            "broken_punctuation"
+          ],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:2",
+            "general_article_penalty"
+          ]
+        }
+      ],
+      "target_window_results": [
+        {
+          "title": "المادة 296 - قانون العمل المصري",
+          "article_number": "296",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.589608,
+          "rerank_score": 0.986275,
+          "section_level": "الكتاب الخامس > الباب الثانى",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:2"
+          ]
+        },
+        {
+          "title": "المادة 145 - قانون العمل المصري",
+          "article_number": "145",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.716667,
+          "rerank_score": 0.953334,
+          "section_level": "الكتاب الثالث > الباب الأول",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:1",
+            "general_article_penalty"
+          ]
+        },
+        {
+          "title": "المادة 147 - قانون العمل المصري",
+          "article_number": "147",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.427,
+          "rerank_score": 0.717933,
+          "section_level": "الكتاب الثالث > الباب الأول",
+          "quality_warnings": [
+            "broken_punctuation"
+          ],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:2",
+            "general_article_penalty"
+          ]
+        }
+      ],
+      "notes": "يجب أن تتصدر مواد الوقف والجزاءات المرتبطة به."
+    },
+    {
+      "id": "labor_h_004",
+      "domain": "labor_law",
+      "query_type": "specific",
+      "query": "ما أحكام الأجر الإضافي؟",
+      "passed": true,
+      "evaluation_reason": "top1 domain matched expected domain 'labor_law'; top1 law matched expected law; top1 keyword hit ratio=0.3333",
+      "why_passed": [
+        "top1 domain matched expected domain 'labor_law'",
+        "top1 law matched expected law",
+        "top1 keyword hit ratio=0.3333"
+      ],
+      "why_failed": [],
+      "failure_category": null,
+      "expected": {
+        "expected_domain": "labor_law",
+        "expected_law_name": "قانون العمل المصري",
+        "expected_article_numbers": [],
+        "expected_keywords": [
+          "الأجر الإضافي",
+          "أجر",
+          "إضافي"
+        ],
+        "top_k_success": 3
+      },
+      "metrics": {
+        "exact_top1_domain_accuracy": true,
+        "exact_top3_domain_hit_rate": true,
+        "exact_top1_law_accuracy": true,
+        "exact_top3_law_hit_rate": true,
+        "top1_expected_keyword_hit_rate": 0.3333,
+        "topk_expected_keyword_hit_rate": 0.6667,
+        "top1_expected_article_match": null,
+        "topk_expected_article_hit": null,
+        "top1_accepted_topic_hit": null,
+        "topk_accepted_topic_hit": null,
+        "top1_accepted_topic_match_rate": null,
+        "topk_accepted_topic_match_rate": null,
+        "top1_accepted_section_hit": null,
+        "topk_accepted_section_hit": null,
+        "top1_accepted_section_match_rate": null,
+        "topk_accepted_section_match_rate": null,
+        "top1_context_success": true,
+        "topk_context_hit": true,
+        "benchmark_window_domain_hit": true,
+        "benchmark_window_law_hit": true,
+        "benchmark_window_passed": true,
+        "out_of_domain_reject_rate": null
+      },
+      "top_result": {
+        "title": "المادة 107 - قانون العمل المصري",
+        "article_number": "107",
+        "law_name": "قانون العمل المصري",
+        "legal_domain": "labor_law",
+        "score": 0.57,
+        "rerank_score": 1.546667,
+        "section_level": "الكتاب الثالث > الباب الأول",
+        "quality_warnings": [],
+        "rank_explanation": [
+          "phrase_match:الاجر",
+          "specific_query_bias",
+          "strong_summary_overlap",
+          "supporting_chunks:2",
+          "general_article_penalty",
+          "domain_alignment_boost"
+        ]
+      },
+      "top3_results": [
+        {
+          "title": "المادة 107 - قانون العمل المصري",
+          "article_number": "107",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.57,
+          "rerank_score": 1.546667,
+          "section_level": "الكتاب الثالث > الباب الأول",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "phrase_match:الاجر",
+            "specific_query_bias",
+            "strong_summary_overlap",
+            "supporting_chunks:2",
+            "general_article_penalty",
+            "domain_alignment_boost"
+          ]
+        },
+        {
+          "title": "المادة 121 - قانون العمل المصري",
+          "article_number": "121",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.607544,
+          "rerank_score": 1.357544,
+          "section_level": "الكتاب الثالث > الباب الأول",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "phrase_match:الاجر",
+            "specific_query_bias",
+            "supporting_chunks:3",
+            "general_article_penalty",
+            "domain_alignment_boost"
+          ]
+        },
+        {
+          "title": "المادة 108 - قانون العمل المصري",
+          "article_number": "108",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.653333,
+          "rerank_score": 1.27,
+          "section_level": "الكتاب الثالث > الباب الأول",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "phrase_match:الاجر",
+            "specific_query_bias",
+            "supporting_chunks:2",
+            "general_article_penalty",
+            "domain_alignment_boost"
+          ]
+        }
+      ],
+      "target_window_results": [
+        {
+          "title": "المادة 107 - قانون العمل المصري",
+          "article_number": "107",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.57,
+          "rerank_score": 1.546667,
+          "section_level": "الكتاب الثالث > الباب الأول",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "phrase_match:الاجر",
+            "specific_query_bias",
+            "strong_summary_overlap",
+            "supporting_chunks:2",
+            "general_article_penalty",
+            "domain_alignment_boost"
+          ]
+        },
+        {
+          "title": "المادة 121 - قانون العمل المصري",
+          "article_number": "121",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.607544,
+          "rerank_score": 1.357544,
+          "section_level": "الكتاب الثالث > الباب الأول",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "phrase_match:الاجر",
+            "specific_query_bias",
+            "supporting_chunks:3",
+            "general_article_penalty",
+            "domain_alignment_boost"
+          ]
+        },
+        {
+          "title": "المادة 108 - قانون العمل المصري",
+          "article_number": "108",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.653333,
+          "rerank_score": 1.27,
+          "section_level": "الكتاب الثالث > الباب الأول",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "phrase_match:الاجر",
+            "specific_query_bias",
+            "supporting_chunks:2",
+            "general_article_penalty",
+            "domain_alignment_boost"
+          ]
+        }
+      ],
+      "notes": "يجب أن تظهر مواد العمل الإضافي واستحقاق المقابل."
+    },
+    {
+      "id": "labor_h_005",
+      "domain": "labor_law",
+      "query_type": "general",
+      "query": "ما هي التزامات العامل الأساسية؟",
+      "passed": true,
+      "evaluation_reason": "top1 domain matched expected domain 'labor_law'; top1 law matched expected law; top1 keyword hit ratio=0.5",
+      "why_passed": [
+        "top1 domain matched expected domain 'labor_law'",
+        "top1 law matched expected law",
+        "top1 keyword hit ratio=0.5"
+      ],
+      "why_failed": [],
+      "failure_category": null,
+      "expected": {
+        "expected_domain": "labor_law",
+        "expected_law_name": "قانون العمل المصري",
+        "expected_article_numbers": [],
+        "expected_keywords": [
+          "التزامات",
+          "العامل"
+        ],
+        "top_k_success": 3
+      },
+      "metrics": {
+        "exact_top1_domain_accuracy": true,
+        "exact_top3_domain_hit_rate": true,
+        "exact_top1_law_accuracy": true,
+        "exact_top3_law_hit_rate": true,
+        "top1_expected_keyword_hit_rate": 0.5,
+        "topk_expected_keyword_hit_rate": 0.5,
+        "top1_expected_article_match": null,
+        "topk_expected_article_hit": null,
+        "top1_accepted_topic_hit": null,
+        "topk_accepted_topic_hit": null,
+        "top1_accepted_topic_match_rate": null,
+        "topk_accepted_topic_match_rate": null,
+        "top1_accepted_section_hit": null,
+        "topk_accepted_section_hit": null,
+        "top1_accepted_section_match_rate": null,
+        "topk_accepted_section_match_rate": null,
+        "top1_context_success": true,
+        "topk_context_hit": true,
+        "benchmark_window_domain_hit": true,
+        "benchmark_window_law_hit": true,
+        "benchmark_window_passed": true,
+        "out_of_domain_reject_rate": null
+      },
+      "top_result": {
+        "title": "المادة 134 - قانون العمل المصري",
+        "article_number": "134",
+        "law_name": "قانون العمل المصري",
+        "legal_domain": "labor_law",
+        "score": 0.66,
+        "rerank_score": 0.883333,
+        "section_level": "الكتاب الثالث > الباب الأول",
+        "quality_warnings": [],
+        "rank_explanation": [
+          "specific_query_bias",
+          "supporting_chunks:4",
+          "general_article_penalty"
+        ]
+      },
+      "top3_results": [
+        {
+          "title": "المادة 134 - قانون العمل المصري",
+          "article_number": "134",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.66,
+          "rerank_score": 0.883333,
+          "section_level": "الكتاب الثالث > الباب الأول",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:4",
+            "general_article_penalty"
+          ]
+        },
+        {
+          "title": "المادة 1 - قانون العمل المصري",
+          "article_number": "1",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.633667,
+          "rerank_score": 0.861267,
+          "section_level": "الكتاب الأول > الباب الأول",
+          "quality_warnings": [
+            "broken_punctuation"
+          ],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:5",
+            "general_article_penalty"
+          ]
+        },
+        {
+          "title": "المادة 165 - قانون العمل المصري",
+          "article_number": "165",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.64,
+          "rerank_score": 0.843333,
+          "section_level": "الكتاب الثالث > الباب الأول",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:3",
+            "general_article_penalty"
+          ]
+        }
+      ],
+      "target_window_results": [
+        {
+          "title": "المادة 134 - قانون العمل المصري",
+          "article_number": "134",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.66,
+          "rerank_score": 0.883333,
+          "section_level": "الكتاب الثالث > الباب الأول",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:4",
+            "general_article_penalty"
+          ]
+        },
+        {
+          "title": "المادة 1 - قانون العمل المصري",
+          "article_number": "1",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.633667,
+          "rerank_score": 0.861267,
+          "section_level": "الكتاب الأول > الباب الأول",
+          "quality_warnings": [
+            "broken_punctuation"
+          ],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:5",
+            "general_article_penalty"
+          ]
+        },
+        {
+          "title": "المادة 165 - قانون العمل المصري",
+          "article_number": "165",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.64,
+          "rerank_score": 0.843333,
+          "section_level": "الكتاب الثالث > الباب الأول",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:3",
+            "general_article_penalty"
+          ]
+        }
+      ],
+      "notes": "يجب أن تلتقط المواد الخاصة بواجبات العامل."
+    },
+    {
+      "id": "civil_h_001",
+      "domain": "civil_law",
+      "query_type": "specific",
+      "query": "ما أثر الخطأ والضرر في المسؤولية المدنية؟",
+      "passed": true,
+      "evaluation_reason": "top1 domain matched expected domain 'civil_law'; top1 law matched expected law; top1 keyword hit ratio=0.0",
+      "why_passed": [
+        "top1 domain matched expected domain 'civil_law'",
+        "top1 law matched expected law",
+        "top1 keyword hit ratio=0.0"
+      ],
+      "why_failed": [],
+      "failure_category": null,
+      "expected": {
+        "expected_domain": "civil_law",
+        "expected_law_name": "القانون المدني المصري",
+        "expected_article_numbers": [],
+        "expected_keywords": [
+          "الخطأ",
+          "الضرر",
+          "المسؤولية المدنية"
+        ],
+        "top_k_success": 3
+      },
+      "metrics": {
+        "exact_top1_domain_accuracy": true,
+        "exact_top3_domain_hit_rate": true,
+        "exact_top1_law_accuracy": true,
+        "exact_top3_law_hit_rate": true,
+        "top1_expected_keyword_hit_rate": 0.0,
+        "topk_expected_keyword_hit_rate": 0.3333,
+        "top1_expected_article_match": null,
+        "topk_expected_article_hit": null,
+        "top1_accepted_topic_hit": null,
+        "topk_accepted_topic_hit": null,
+        "top1_accepted_topic_match_rate": null,
+        "topk_accepted_topic_match_rate": null,
+        "top1_accepted_section_hit": null,
+        "topk_accepted_section_hit": null,
+        "top1_accepted_section_match_rate": null,
+        "topk_accepted_section_match_rate": null,
+        "top1_context_success": true,
+        "topk_context_hit": true,
+        "benchmark_window_domain_hit": true,
+        "benchmark_window_law_hit": true,
+        "benchmark_window_passed": true,
+        "out_of_domain_reject_rate": null
+      },
+      "top_result": {
+        "title": "المادة 695 - القانون المدني المصري",
+        "article_number": "695",
+        "law_name": "القانون المدني المصري",
+        "legal_domain": "civil_law",
+        "score": 0.572,
+        "rerank_score": 0.8496,
+        "section_level": "الكتاب الثاني > الفصل الثاني > ويجب فى استعمال هذا الحق أن يسبقه إخطار، وطريقة",
+        "quality_warnings": [
+          "broken_punctuation"
+        ],
+        "rank_explanation": [
+          "specific_query_bias",
+          "supporting_chunks:3",
+          "domain_alignment_boost"
+        ]
+      },
+      "top3_results": [
+        {
+          "title": "المادة 695 - القانون المدني المصري",
+          "article_number": "695",
+          "law_name": "القانون المدني المصري",
+          "legal_domain": "civil_law",
+          "score": 0.572,
+          "rerank_score": 0.8496,
+          "section_level": "الكتاب الثاني > الفصل الثاني > ويجب فى استعمال هذا الحق أن يسبقه إخطار، وطريقة",
+          "quality_warnings": [
+            "broken_punctuation"
+          ],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:3",
+            "domain_alignment_boost"
+          ]
+        },
+        {
+          "title": "المادة 727 - القانون المدني المصري",
+          "article_number": "727",
+          "law_name": "القانون المدني المصري",
+          "legal_domain": "civil_law",
+          "score": 0.590824,
+          "rerank_score": 0.828424,
+          "section_level": "الكتاب الثاني > الفصل الرابع",
+          "quality_warnings": [
+            "broken_punctuation"
+          ],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:1",
+            "domain_alignment_boost"
+          ]
+        },
+        {
+          "title": "المادة 173 - القانون المدني المصري",
+          "article_number": "173",
+          "law_name": "القانون المدني المصري",
+          "legal_domain": "civil_law",
+          "score": 0.58325,
+          "rerank_score": 0.74085,
+          "section_level": "الكتاب الاول - > الفصل الثالث > تسقط بالتقادم دعوى التعويض الناشئة ع العمل",
+          "quality_warnings": [
+            "broken_punctuation"
+          ],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:2",
+            "general_article_penalty",
+            "domain_alignment_boost"
+          ]
+        }
+      ],
+      "target_window_results": [
+        {
+          "title": "المادة 695 - القانون المدني المصري",
+          "article_number": "695",
+          "law_name": "القانون المدني المصري",
+          "legal_domain": "civil_law",
+          "score": 0.572,
+          "rerank_score": 0.8496,
+          "section_level": "الكتاب الثاني > الفصل الثاني > ويجب فى استعمال هذا الحق أن يسبقه إخطار، وطريقة",
+          "quality_warnings": [
+            "broken_punctuation"
+          ],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:3",
+            "domain_alignment_boost"
+          ]
+        },
+        {
+          "title": "المادة 727 - القانون المدني المصري",
+          "article_number": "727",
+          "law_name": "القانون المدني المصري",
+          "legal_domain": "civil_law",
+          "score": 0.590824,
+          "rerank_score": 0.828424,
+          "section_level": "الكتاب الثاني > الفصل الرابع",
+          "quality_warnings": [
+            "broken_punctuation"
+          ],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:1",
+            "domain_alignment_boost"
+          ]
+        },
+        {
+          "title": "المادة 173 - القانون المدني المصري",
+          "article_number": "173",
+          "law_name": "القانون المدني المصري",
+          "legal_domain": "civil_law",
+          "score": 0.58325,
+          "rerank_score": 0.74085,
+          "section_level": "الكتاب الاول - > الفصل الثالث > تسقط بالتقادم دعوى التعويض الناشئة ع العمل",
+          "quality_warnings": [
+            "broken_punctuation"
+          ],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:2",
+            "general_article_penalty",
+            "domain_alignment_boost"
+          ]
+        }
+      ],
+      "notes": "مواد المسؤولية والتعويض يجب أن تكون في القمة."
+    },
+    {
+      "id": "civil_h_002",
+      "domain": "civil_law",
+      "query_type": "tricky",
+      "query": "ما أحكام الوعد بالتعاقد؟",
+      "passed": false,
+      "evaluation_reason": "top1 domain 'labor_law' did not match expected domain 'civil_law'; top1 law 'قانون العمل المصري' did not match expected law 'القانون المدني المصري'; expected match appeared within target window but not at top1",
+      "why_passed": [
+        "top1 keyword hit ratio=0.0"
+      ],
+      "why_failed": [
+        "top1 domain 'labor_law' did not match expected domain 'civil_law'",
+        "top1 law 'قانون العمل المصري' did not match expected law 'القانون المدني المصري'",
+        "expected match appeared within target window but not at top1"
+      ],
+      "failure_category": "wrong_domain",
+      "expected": {
+        "expected_domain": "civil_law",
+        "expected_law_name": "القانون المدني المصري",
+        "expected_article_numbers": [],
+        "expected_keywords": [
+          "الوعد بالتعاقد"
+        ],
+        "top_k_success": 3
+      },
+      "metrics": {
+        "exact_top1_domain_accuracy": false,
+        "exact_top3_domain_hit_rate": true,
+        "exact_top1_law_accuracy": false,
+        "exact_top3_law_hit_rate": true,
+        "top1_expected_keyword_hit_rate": 0.0,
+        "topk_expected_keyword_hit_rate": 0.0,
+        "top1_expected_article_match": null,
+        "topk_expected_article_hit": null,
+        "top1_accepted_topic_hit": null,
+        "topk_accepted_topic_hit": null,
+        "top1_accepted_topic_match_rate": null,
+        "topk_accepted_topic_match_rate": null,
+        "top1_accepted_section_hit": null,
+        "topk_accepted_section_hit": null,
+        "top1_accepted_section_match_rate": null,
+        "topk_accepted_section_match_rate": null,
+        "top1_context_success": true,
+        "topk_context_hit": true,
+        "benchmark_window_domain_hit": true,
+        "benchmark_window_law_hit": true,
+        "benchmark_window_passed": true,
+        "out_of_domain_reject_rate": null
+      },
+      "top_result": {
+        "title": "المادة 296 - قانون العمل المصري",
+        "article_number": "296",
+        "law_name": "قانون العمل المصري",
+        "legal_domain": "labor_law",
+        "score": 0.57,
+        "rerank_score": 0.853333,
+        "section_level": "الكتاب الخامس > الباب الثانى",
+        "quality_warnings": [],
+        "rank_explanation": [
+          "specific_query_bias",
+          "supporting_chunks:2"
+        ]
+      },
+      "top3_results": [
+        {
+          "title": "المادة 296 - قانون العمل المصري",
+          "article_number": "296",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.57,
+          "rerank_score": 0.853333,
+          "section_level": "الكتاب الخامس > الباب الثانى",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:2"
+          ]
+        },
+        {
+          "title": "المادة 545 - القانون المدني المصري",
+          "article_number": "545",
+          "law_name": "القانون المدني المصري",
+          "legal_domain": "civil_law",
+          "score": 0.552,
+          "rerank_score": 0.7296,
+          "section_level": "الكتاب الثاني > الفصل الخامس > الشيء، فان كان القرض بأجر سرت أحكام البيع، وإلا فأحكام العارية",
+          "quality_warnings": [
+            "broken_punctuation"
+          ],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:2"
+          ]
+        },
+        {
+          "title": "المادة 102 - القانون المدني المصري",
+          "article_number": "102",
+          "law_name": "القانون المدني المصري",
+          "legal_domain": "civil_law",
+          "score": 0.53,
+          "rerank_score": 0.633333,
+          "section_level": "الكتاب الاول - > الفصل الأول > ولأحكام القانون والعرف والعدالة",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "general_article_penalty"
+          ]
+        }
+      ],
+      "target_window_results": [
+        {
+          "title": "المادة 296 - قانون العمل المصري",
+          "article_number": "296",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.57,
+          "rerank_score": 0.853333,
+          "section_level": "الكتاب الخامس > الباب الثانى",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:2"
+          ]
+        },
+        {
+          "title": "المادة 545 - القانون المدني المصري",
+          "article_number": "545",
+          "law_name": "القانون المدني المصري",
+          "legal_domain": "civil_law",
+          "score": 0.552,
+          "rerank_score": 0.7296,
+          "section_level": "الكتاب الثاني > الفصل الخامس > الشيء، فان كان القرض بأجر سرت أحكام البيع، وإلا فأحكام العارية",
+          "quality_warnings": [
+            "broken_punctuation"
+          ],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:2"
+          ]
+        },
+        {
+          "title": "المادة 102 - القانون المدني المصري",
+          "article_number": "102",
+          "law_name": "القانون المدني المصري",
+          "legal_domain": "civil_law",
+          "score": 0.53,
+          "rerank_score": 0.633333,
+          "section_level": "الكتاب الاول - > الفصل الأول > ولأحكام القانون والعرف والعدالة",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "general_article_penalty"
+          ]
+        }
+      ],
+      "notes": "لا ينبغي أن تضيع داخل مواد انعقاد العقد العامة."
+    },
+    {
+      "id": "civil_h_003",
+      "domain": "civil_law",
+      "query_type": "specific",
+      "query": "متى يكون العقد قابلا للإبطال؟",
+      "passed": true,
+      "evaluation_reason": "top1 domain matched expected domain 'civil_law'; top1 law matched expected law; top1 keyword hit ratio=1.0",
+      "why_passed": [
+        "top1 domain matched expected domain 'civil_law'",
+        "top1 law matched expected law",
+        "top1 keyword hit ratio=1.0"
+      ],
+      "why_failed": [],
+      "failure_category": null,
+      "expected": {
+        "expected_domain": "civil_law",
+        "expected_law_name": "القانون المدني المصري",
+        "expected_article_numbers": [],
+        "expected_keywords": [
+          "قابلا للإبطال",
+          "العقد",
+          "إبطال"
+        ],
+        "top_k_success": 3
+      },
+      "metrics": {
+        "exact_top1_domain_accuracy": true,
+        "exact_top3_domain_hit_rate": true,
+        "exact_top1_law_accuracy": true,
+        "exact_top3_law_hit_rate": true,
+        "top1_expected_keyword_hit_rate": 1.0,
+        "topk_expected_keyword_hit_rate": 1.0,
+        "top1_expected_article_match": null,
+        "topk_expected_article_hit": null,
+        "top1_accepted_topic_hit": null,
+        "topk_accepted_topic_hit": null,
+        "top1_accepted_topic_match_rate": null,
+        "topk_accepted_topic_match_rate": null,
+        "top1_accepted_section_hit": null,
+        "topk_accepted_section_hit": null,
+        "top1_accepted_section_match_rate": null,
+        "topk_accepted_section_match_rate": null,
+        "top1_context_success": true,
+        "topk_context_hit": true,
+        "benchmark_window_domain_hit": true,
+        "benchmark_window_law_hit": true,
+        "benchmark_window_passed": true,
+        "out_of_domain_reject_rate": null
+      },
+      "top_result": {
+        "title": "المادة 122 - القانون المدني المصري",
+        "article_number": "122",
+        "law_name": "القانون المدني المصري",
+        "legal_domain": "civil_law",
+        "score": 0.53,
+        "rerank_score": 0.86,
+        "section_level": "الكتاب الاول - > الفصل الأول > القانون",
+        "quality_warnings": [],
+        "rank_explanation": [
+          "specific_query_bias",
+          "strong_summary_overlap",
+          "general_article_penalty"
+        ]
+      },
+      "top3_results": [
+        {
+          "title": "المادة 122 - القانون المدني المصري",
+          "article_number": "122",
+          "law_name": "القانون المدني المصري",
+          "legal_domain": "civil_law",
+          "score": 0.53,
+          "rerank_score": 0.86,
+          "section_level": "الكتاب الاول - > الفصل الأول > القانون",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "strong_summary_overlap",
+            "general_article_penalty"
+          ]
+        },
+        {
+          "title": "المادة 173 - قانون العمل المصري",
+          "article_number": "173",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.57,
+          "rerank_score": 0.725,
+          "section_level": "الكتاب الثالث > الباب الأول",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:2",
+            "general_article_penalty"
+          ]
+        },
+        {
+          "title": "المادة 111 - القانون المدني المصري",
+          "article_number": "111",
+          "law_name": "القانون المدني المصري",
+          "legal_domain": "civil_law",
+          "score": 0.552,
+          "rerank_score": 0.6746,
+          "section_level": "الكتاب الاول - > الفصل الأول > - آلشخص أهل للتعاقد ما لم تسلب أهليته أو يحد منها بحكم القانون",
+          "quality_warnings": [
+            "broken_punctuation"
+          ],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:2",
+            "general_article_penalty"
+          ]
+        }
+      ],
+      "target_window_results": [
+        {
+          "title": "المادة 122 - القانون المدني المصري",
+          "article_number": "122",
+          "law_name": "القانون المدني المصري",
+          "legal_domain": "civil_law",
+          "score": 0.53,
+          "rerank_score": 0.86,
+          "section_level": "الكتاب الاول - > الفصل الأول > القانون",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "strong_summary_overlap",
+            "general_article_penalty"
+          ]
+        },
+        {
+          "title": "المادة 173 - قانون العمل المصري",
+          "article_number": "173",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.57,
+          "rerank_score": 0.725,
+          "section_level": "الكتاب الثالث > الباب الأول",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:2",
+            "general_article_penalty"
+          ]
+        },
+        {
+          "title": "المادة 111 - القانون المدني المصري",
+          "article_number": "111",
+          "law_name": "القانون المدني المصري",
+          "legal_domain": "civil_law",
+          "score": 0.552,
+          "rerank_score": 0.6746,
+          "section_level": "الكتاب الاول - > الفصل الأول > - آلشخص أهل للتعاقد ما لم تسلب أهليته أو يحد منها بحكم القانون",
+          "quality_warnings": [
+            "broken_punctuation"
+          ],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:2",
+            "general_article_penalty"
+          ]
+        }
+      ],
+      "notes": "يجب أن تظهر مواد الإبطال والعيوب الإرادية."
+    },
+    {
+      "id": "civil_h_004",
+      "domain": "civil_law",
+      "query_type": "tricky",
+      "query": "ما أحكام الفسخ الاتفاقي؟",
+      "passed": false,
+      "evaluation_reason": "top1 domain 'labor_law' did not match expected domain 'civil_law'; top1 law 'قانون العمل المصري' did not match expected law 'القانون المدني المصري'",
+      "why_passed": [
+        "top1 keyword hit ratio=0.0"
+      ],
+      "why_failed": [
+        "top1 domain 'labor_law' did not match expected domain 'civil_law'",
+        "top1 law 'قانون العمل المصري' did not match expected law 'القانون المدني المصري'"
+      ],
+      "failure_category": "wrong_domain",
+      "expected": {
+        "expected_domain": "civil_law",
+        "expected_law_name": "القانون المدني المصري",
+        "expected_article_numbers": [],
+        "expected_keywords": [
+          "الفسخ الاتفاقي",
+          "فسخ"
+        ],
+        "top_k_success": 3
+      },
+      "metrics": {
+        "exact_top1_domain_accuracy": false,
+        "exact_top3_domain_hit_rate": false,
+        "exact_top1_law_accuracy": false,
+        "exact_top3_law_hit_rate": false,
+        "top1_expected_keyword_hit_rate": 0.0,
+        "topk_expected_keyword_hit_rate": 0.0,
+        "top1_expected_article_match": null,
+        "topk_expected_article_hit": null,
+        "top1_accepted_topic_hit": null,
+        "topk_accepted_topic_hit": null,
+        "top1_accepted_topic_match_rate": null,
+        "topk_accepted_topic_match_rate": null,
+        "top1_accepted_section_hit": null,
+        "topk_accepted_section_hit": null,
+        "top1_accepted_section_match_rate": null,
+        "topk_accepted_section_match_rate": null,
+        "top1_context_success": true,
+        "topk_context_hit": true,
+        "benchmark_window_domain_hit": false,
+        "benchmark_window_law_hit": false,
+        "benchmark_window_passed": false,
+        "out_of_domain_reject_rate": null
+      },
+      "top_result": {
+        "title": "المادة 36 - قانون العمل المصري",
+        "article_number": "36",
+        "law_name": "قانون العمل المصري",
+        "legal_domain": "labor_law",
+        "score": 0.55,
+        "rerank_score": 0.7,
+        "section_level": "الكتاب الثان > الباب ال",
+        "quality_warnings": [],
+        "rank_explanation": [
+          "specific_query_bias",
+          "supporting_chunks:1"
+        ]
+      },
+      "top3_results": [
+        {
+          "title": "المادة 36 - قانون العمل المصري",
+          "article_number": "36",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.55,
+          "rerank_score": 0.7,
+          "section_level": "الكتاب الثان > الباب ال",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:1"
+          ]
+        },
+        {
+          "title": "المادة 296 - قانون العمل المصري",
+          "article_number": "296",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.403333,
+          "rerank_score": 0.686666,
+          "section_level": "الكتاب الخامس > الباب الثانى",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:2"
+          ]
+        },
+        {
+          "title": "المادة 126 - قانون العمل المصري",
+          "article_number": "126",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.57,
+          "rerank_score": 0.64,
+          "section_level": "الكتاب الثالث > الباب الأول",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:2",
+            "general_article_penalty"
+          ]
+        }
+      ],
+      "target_window_results": [
+        {
+          "title": "المادة 36 - قانون العمل المصري",
+          "article_number": "36",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.55,
+          "rerank_score": 0.7,
+          "section_level": "الكتاب الثان > الباب ال",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:1"
+          ]
+        },
+        {
+          "title": "المادة 296 - قانون العمل المصري",
+          "article_number": "296",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.403333,
+          "rerank_score": 0.686666,
+          "section_level": "الكتاب الخامس > الباب الثانى",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:2"
+          ]
+        },
+        {
+          "title": "المادة 126 - قانون العمل المصري",
+          "article_number": "126",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.57,
+          "rerank_score": 0.64,
+          "section_level": "الكتاب الثالث > الباب الأول",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:2",
+            "general_article_penalty"
+          ]
+        }
+      ],
+      "notes": "يجب التمييز بين الفسخ القضائي والاتفاقي."
+    },
+    {
+      "id": "civil_h_005",
+      "domain": "civil_law",
+      "query_type": "tricky",
+      "query": "ما أحكام الالتزام الشرطي؟",
+      "passed": false,
+      "evaluation_reason": "top1 domain 'labor_law' did not match expected domain 'civil_law'; top1 law 'قانون العمل المصري' did not match expected law 'القانون المدني المصري'; expected match appeared within target window but not at top1",
+      "why_passed": [
+        "top1 keyword hit ratio=0.5"
+      ],
+      "why_failed": [
+        "top1 domain 'labor_law' did not match expected domain 'civil_law'",
+        "top1 law 'قانون العمل المصري' did not match expected law 'القانون المدني المصري'",
+        "expected match appeared within target window but not at top1"
+      ],
+      "failure_category": "wrong_domain",
+      "expected": {
+        "expected_domain": "civil_law",
+        "expected_law_name": "القانون المدني المصري",
+        "expected_article_numbers": [],
+        "expected_keywords": [
+          "الالتزام",
+          "الشرط"
+        ],
+        "top_k_success": 3
+      },
+      "metrics": {
+        "exact_top1_domain_accuracy": false,
+        "exact_top3_domain_hit_rate": true,
+        "exact_top1_law_accuracy": false,
+        "exact_top3_law_hit_rate": true,
+        "top1_expected_keyword_hit_rate": 0.5,
+        "topk_expected_keyword_hit_rate": 0.5,
+        "top1_expected_article_match": null,
+        "topk_expected_article_hit": null,
+        "top1_accepted_topic_hit": null,
+        "topk_accepted_topic_hit": null,
+        "top1_accepted_topic_match_rate": null,
+        "topk_accepted_topic_match_rate": null,
+        "top1_accepted_section_hit": null,
+        "topk_accepted_section_hit": null,
+        "top1_accepted_section_match_rate": null,
+        "topk_accepted_section_match_rate": null,
+        "top1_context_success": true,
+        "topk_context_hit": true,
+        "benchmark_window_domain_hit": true,
+        "benchmark_window_law_hit": true,
+        "benchmark_window_passed": true,
+        "out_of_domain_reject_rate": null
+      },
+      "top_result": {
+        "title": "المادة 60 - قانون العمل المصري",
+        "article_number": "60",
+        "law_name": "قانون العمل المصري",
+        "legal_domain": "labor_law",
+        "score": 0.532,
+        "rerank_score": 0.8296,
+        "section_level": "الكتاب الثان > الباب ال",
+        "quality_warnings": [
+          "broken_punctuation"
+        ],
+        "rank_explanation": [
+          "specific_query_bias",
+          "supporting_chunks:1"
+        ]
+      },
+      "top3_results": [
+        {
+          "title": "المادة 60 - قانون العمل المصري",
+          "article_number": "60",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.532,
+          "rerank_score": 0.8296,
+          "section_level": "الكتاب الثان > الباب ال",
+          "quality_warnings": [
+            "broken_punctuation"
+          ],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:1"
+          ]
+        },
+        {
+          "title": "المادة 274 - القانون المدني المصري",
+          "article_number": "274",
+          "law_name": "القانون المدني المصري",
+          "legal_domain": "civil_law",
+          "score": 0.552,
+          "rerank_score": 0.702933,
+          "section_level": "الكتاب الاول - > الفصل الأول > ص القانون",
+          "quality_warnings": [
+            "broken_punctuation"
+          ],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:2",
+            "general_article_penalty"
+          ]
+        },
+        {
+          "title": "المادة 296 - قانون العمل المصري",
+          "article_number": "296",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.403333,
+          "rerank_score": 0.686666,
+          "section_level": "الكتاب الخامس > الباب الثانى",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:2"
+          ]
+        }
+      ],
+      "target_window_results": [
+        {
+          "title": "المادة 60 - قانون العمل المصري",
+          "article_number": "60",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.532,
+          "rerank_score": 0.8296,
+          "section_level": "الكتاب الثان > الباب ال",
+          "quality_warnings": [
+            "broken_punctuation"
+          ],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:1"
+          ]
+        },
+        {
+          "title": "المادة 274 - القانون المدني المصري",
+          "article_number": "274",
+          "law_name": "القانون المدني المصري",
+          "legal_domain": "civil_law",
+          "score": 0.552,
+          "rerank_score": 0.702933,
+          "section_level": "الكتاب الاول - > الفصل الأول > ص القانون",
+          "quality_warnings": [
+            "broken_punctuation"
+          ],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:2",
+            "general_article_penalty"
+          ]
+        },
+        {
+          "title": "المادة 296 - قانون العمل المصري",
+          "article_number": "296",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.403333,
+          "rerank_score": 0.686666,
+          "section_level": "الكتاب الخامس > الباب الثانى",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:2"
+          ]
+        }
+      ],
+      "notes": "يجب أن تظهر المواد الخاصة بالشرط الواقف أو الفاسخ."
+    },
+    {
+      "id": "criminal_h_001",
+      "domain": "criminal_law",
+      "query_type": "specific",
+      "query": "ما هي جريمة خيانة الأمانة وعقوبتها؟",
+      "passed": true,
+      "evaluation_reason": "top1 domain matched expected domain 'criminal_law'; top1 law matched expected law; top1 keyword hit ratio=1.0; top1 matched accepted topic terms with rate=1.0",
+      "why_passed": [
+        "top1 domain matched expected domain 'criminal_law'",
+        "top1 law matched expected law",
+        "top1 keyword hit ratio=1.0",
+        "top1 matched accepted topic terms with rate=1.0"
+      ],
+      "why_failed": [],
+      "failure_category": null,
+      "expected": {
+        "expected_domain": "criminal_law",
+        "expected_law_name": "قانون العقوبات المصري",
+        "expected_article_numbers": [],
+        "expected_keywords": [
+          "خيانة الأمانة",
+          "عقوبة"
+        ],
+        "accepted_topic_terms": [
+          "خيانة الأمانة"
+        ],
+        "top_k_success": 3
+      },
+      "metrics": {
+        "exact_top1_domain_accuracy": true,
+        "exact_top3_domain_hit_rate": true,
+        "exact_top1_law_accuracy": true,
+        "exact_top3_law_hit_rate": true,
+        "top1_expected_keyword_hit_rate": 1.0,
+        "topk_expected_keyword_hit_rate": 1.0,
+        "top1_expected_article_match": null,
+        "topk_expected_article_hit": null,
+        "top1_accepted_topic_hit": true,
+        "topk_accepted_topic_hit": true,
+        "top1_accepted_topic_match_rate": 1.0,
+        "topk_accepted_topic_match_rate": 1.0,
+        "top1_accepted_section_hit": null,
+        "topk_accepted_section_hit": null,
+        "top1_accepted_section_match_rate": null,
+        "topk_accepted_section_match_rate": null,
+        "top1_context_success": true,
+        "topk_context_hit": true,
+        "benchmark_window_domain_hit": true,
+        "benchmark_window_law_hit": true,
+        "benchmark_window_passed": true,
+        "out_of_domain_reject_rate": null
+      },
+      "top_result": {
+        "title": "المادة 49 - قانون العقوبات المصري",
+        "article_number": "49",
+        "law_name": "قانون العقوبات المصري",
+        "legal_domain": "criminal_law",
+        "score": 0.615455,
+        "rerank_score": 1.175455,
+        "section_level": "الباب السابع: العود",
+        "quality_warnings": [],
+        "rank_explanation": [
+          "specific_query_bias",
+          "supporting_chunks:2",
+          "domain_alignment_boost",
+          "criminal_domain_hint",
+          "exact_offense_match"
+        ]
+      },
+      "top3_results": [
+        {
+          "title": "المادة 49 - قانون العقوبات المصري",
+          "article_number": "49",
+          "law_name": "قانون العقوبات المصري",
+          "legal_domain": "criminal_law",
+          "score": 0.615455,
+          "rerank_score": 1.175455,
+          "section_level": "الباب السابع: العود",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:2",
+            "domain_alignment_boost",
+            "criminal_domain_hint",
+            "exact_offense_match"
+          ]
+        },
+        {
+          "title": "المادة 78 - قانون العقوبات المصري",
+          "article_number": "78",
+          "law_name": "قانون العقوبات المصري",
+          "legal_domain": "criminal_law",
+          "score": 0.701111,
+          "rerank_score": 0.901111,
+          "section_level": "الكتاب الثاني > الجنايات المضرة بأمن الحكومة من جهة الخارج",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:3",
+            "domain_alignment_boost",
+            "criminal_domain_hint"
+          ]
+        },
+        {
+          "title": "المادة 377 - قانون العقوبات المصري",
+          "article_number": "377",
+          "law_name": "قانون العقوبات المصري",
+          "legal_domain": "criminal_law",
+          "score": 0.57,
+          "rerank_score": 0.7,
+          "section_level": "الكتاب الرابع > المخالفات المتعلقة بالأمن العام أو الراحة العمومية",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:2",
+            "domain_alignment_boost",
+            "criminal_domain_hint"
+          ]
+        }
+      ],
+      "target_window_results": [
+        {
+          "title": "المادة 49 - قانون العقوبات المصري",
+          "article_number": "49",
+          "law_name": "قانون العقوبات المصري",
+          "legal_domain": "criminal_law",
+          "score": 0.615455,
+          "rerank_score": 1.175455,
+          "section_level": "الباب السابع: العود",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:2",
+            "domain_alignment_boost",
+            "criminal_domain_hint",
+            "exact_offense_match"
+          ]
+        },
+        {
+          "title": "المادة 78 - قانون العقوبات المصري",
+          "article_number": "78",
+          "law_name": "قانون العقوبات المصري",
+          "legal_domain": "criminal_law",
+          "score": 0.701111,
+          "rerank_score": 0.901111,
+          "section_level": "الكتاب الثاني > الجنايات المضرة بأمن الحكومة من جهة الخارج",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:3",
+            "domain_alignment_boost",
+            "criminal_domain_hint"
+          ]
+        },
+        {
+          "title": "المادة 377 - قانون العقوبات المصري",
+          "article_number": "377",
+          "law_name": "قانون العقوبات المصري",
+          "legal_domain": "criminal_law",
+          "score": 0.57,
+          "rerank_score": 0.7,
+          "section_level": "الكتاب الرابع > المخالفات المتعلقة بالأمن العام أو الراحة العمومية",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:2",
+            "domain_alignment_boost",
+            "criminal_domain_hint"
+          ]
+        }
+      ],
+      "notes": "يجب ألا تُخلط مع السرقة أو النصب."
+    },
+    {
+      "id": "criminal_h_002",
+      "domain": "criminal_law",
+      "query_type": "general",
+      "query": "ما المقصود بجريمة الاختلاس؟",
+      "passed": false,
+      "evaluation_reason": "top1 keyword hit ratio=0.0 was below threshold; best-in-window=0.0; top1 did not match accepted topic terms; topk_topic_hit=False, best_topic_rate=0.0; top1 did not satisfy the accepted topic/section specificity criteria",
+      "why_passed": [
+        "top1 domain matched expected domain 'criminal_law'",
+        "top1 law matched expected law"
+      ],
+      "why_failed": [
+        "top1 keyword hit ratio=0.0 was below threshold; best-in-window=0.0",
+        "top1 did not match accepted topic terms; topk_topic_hit=False, best_topic_rate=0.0",
+        "top1 did not satisfy the accepted topic/section specificity criteria"
+      ],
+      "failure_category": "criminal_offense_miss",
+      "expected": {
+        "expected_domain": "criminal_law",
+        "expected_law_name": "قانون العقوبات المصري",
+        "expected_article_numbers": [],
+        "expected_keywords": [
+          "الاختلاس"
+        ],
+        "accepted_topic_terms": [
+          "الاختلاس"
+        ],
+        "top_k_success": 3
+      },
+      "metrics": {
+        "exact_top1_domain_accuracy": true,
+        "exact_top3_domain_hit_rate": true,
+        "exact_top1_law_accuracy": true,
+        "exact_top3_law_hit_rate": true,
+        "top1_expected_keyword_hit_rate": 0.0,
+        "topk_expected_keyword_hit_rate": 0.0,
+        "top1_expected_article_match": null,
+        "topk_expected_article_hit": null,
+        "top1_accepted_topic_hit": false,
+        "topk_accepted_topic_hit": false,
+        "top1_accepted_topic_match_rate": 0.0,
+        "topk_accepted_topic_match_rate": 0.0,
+        "top1_accepted_section_hit": null,
+        "topk_accepted_section_hit": null,
+        "top1_accepted_section_match_rate": null,
+        "topk_accepted_section_match_rate": null,
+        "top1_context_success": false,
+        "topk_context_hit": false,
+        "benchmark_window_domain_hit": true,
+        "benchmark_window_law_hit": true,
+        "benchmark_window_passed": false,
+        "out_of_domain_reject_rate": null
+      },
+      "top_result": {
+        "title": "المادة 48 - قانون العقوبات المصري",
+        "article_number": "48",
+        "law_name": "قانون العقوبات المصري",
+        "legal_domain": "criminal_law",
+        "score": 0.523333,
+        "rerank_score": 0.79,
+        "section_level": "الباب السادس: الاتفاقات الجنائية",
+        "quality_warnings": [],
+        "rank_explanation": [
+          "supporting_chunks:3",
+          "domain_alignment_boost",
+          "criminal_domain_hint"
+        ]
+      },
+      "top3_results": [
+        {
+          "title": "المادة 48 - قانون العقوبات المصري",
+          "article_number": "48",
+          "law_name": "قانون العقوبات المصري",
+          "legal_domain": "criminal_law",
+          "score": 0.523333,
+          "rerank_score": 0.79,
+          "section_level": "الباب السادس: الاتفاقات الجنائية",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "supporting_chunks:3",
+            "domain_alignment_boost",
+            "criminal_domain_hint"
+          ]
+        },
+        {
+          "title": "المادة 375 - قانون العقوبات المصري",
+          "article_number": "375",
+          "law_name": "قانون العقوبات المصري",
+          "legal_domain": "criminal_law",
+          "score": 0.57,
+          "rerank_score": 0.753333,
+          "section_level": "قانون العقوبات المصري",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "supporting_chunks:2",
+            "domain_alignment_boost",
+            "criminal_domain_hint"
+          ]
+        },
+        {
+          "title": "المادة 83 (أ) - قانون العقوبات المصري",
+          "article_number": "83 (أ)",
+          "law_name": "قانون العقوبات المصري",
+          "legal_domain": "criminal_law",
+          "score": 0.57,
+          "rerank_score": 0.7,
+          "section_level": "الكتاب الثاني > الجنايات المضرة بأمن الحكومة من جهة الخارج",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "supporting_chunks:2",
+            "domain_alignment_boost",
+            "criminal_domain_hint"
+          ]
+        }
+      ],
+      "target_window_results": [
+        {
+          "title": "المادة 48 - قانون العقوبات المصري",
+          "article_number": "48",
+          "law_name": "قانون العقوبات المصري",
+          "legal_domain": "criminal_law",
+          "score": 0.523333,
+          "rerank_score": 0.79,
+          "section_level": "الباب السادس: الاتفاقات الجنائية",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "supporting_chunks:3",
+            "domain_alignment_boost",
+            "criminal_domain_hint"
+          ]
+        },
+        {
+          "title": "المادة 375 - قانون العقوبات المصري",
+          "article_number": "375",
+          "law_name": "قانون العقوبات المصري",
+          "legal_domain": "criminal_law",
+          "score": 0.57,
+          "rerank_score": 0.753333,
+          "section_level": "قانون العقوبات المصري",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "supporting_chunks:2",
+            "domain_alignment_boost",
+            "criminal_domain_hint"
+          ]
+        },
+        {
+          "title": "المادة 83 (أ) - قانون العقوبات المصري",
+          "article_number": "83 (أ)",
+          "law_name": "قانون العقوبات المصري",
+          "legal_domain": "criminal_law",
+          "score": 0.57,
+          "rerank_score": 0.7,
+          "section_level": "الكتاب الثاني > الجنايات المضرة بأمن الحكومة من جهة الخارج",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "supporting_chunks:2",
+            "domain_alignment_boost",
+            "criminal_domain_hint"
+          ]
+        }
+      ],
+      "notes": "ينبغي أن تكون النتائج من جرائم الأموال العامة أو الاختلاس."
+    },
+    {
+      "id": "criminal_h_003",
+      "domain": "criminal_law",
+      "query_type": "tricky",
+      "query": "ما هي عقوبة التزوير في المحررات؟",
+      "passed": false,
+      "evaluation_reason": "top1 keyword hit ratio=0.0 was below threshold; best-in-window=0.3333; top1 did not match accepted topic terms; topk_topic_hit=False, best_topic_rate=0.0; top1 did not satisfy the accepted topic/section specificity criteria",
+      "why_passed": [
+        "top1 domain matched expected domain 'criminal_law'",
+        "top1 law matched expected law"
+      ],
+      "why_failed": [
+        "top1 keyword hit ratio=0.0 was below threshold; best-in-window=0.3333",
+        "top1 did not match accepted topic terms; topk_topic_hit=False, best_topic_rate=0.0",
+        "top1 did not satisfy the accepted topic/section specificity criteria"
+      ],
+      "failure_category": "criminal_offense_miss",
+      "expected": {
+        "expected_domain": "criminal_law",
+        "expected_law_name": "قانون العقوبات المصري",
+        "expected_article_numbers": [],
+        "expected_keywords": [
+          "التزوير",
+          "المحررات",
+          "عقوبة"
+        ],
+        "accepted_topic_terms": [
+          "التزوير",
+          "المحررات"
+        ],
+        "top_k_success": 3
+      },
+      "metrics": {
+        "exact_top1_domain_accuracy": true,
+        "exact_top3_domain_hit_rate": true,
+        "exact_top1_law_accuracy": true,
+        "exact_top3_law_hit_rate": true,
+        "top1_expected_keyword_hit_rate": 0.0,
+        "topk_expected_keyword_hit_rate": 0.3333,
+        "top1_expected_article_match": null,
+        "topk_expected_article_hit": null,
+        "top1_accepted_topic_hit": false,
+        "topk_accepted_topic_hit": false,
+        "top1_accepted_topic_match_rate": 0.0,
+        "topk_accepted_topic_match_rate": 0.0,
+        "top1_accepted_section_hit": null,
+        "topk_accepted_section_hit": null,
+        "top1_accepted_section_match_rate": null,
+        "topk_accepted_section_match_rate": null,
+        "top1_context_success": false,
+        "topk_context_hit": false,
+        "benchmark_window_domain_hit": true,
+        "benchmark_window_law_hit": true,
+        "benchmark_window_passed": false,
+        "out_of_domain_reject_rate": null
+      },
+      "top_result": {
+        "title": "المادة 2 - قانون العقوبات المصري",
+        "article_number": "2",
+        "law_name": "قانون العقوبات المصري",
+        "legal_domain": "criminal_law",
+        "score": 0.715,
+        "rerank_score": 1.345,
+        "section_level": "قانون العقوبات المصري",
+        "quality_warnings": [],
+        "rank_explanation": [
+          "specific_query_bias",
+          "supporting_chunks:3",
+          "domain_alignment_boost",
+          "criminal_domain_hint",
+          "exact_offense_match"
+        ]
+      },
+      "top3_results": [
+        {
+          "title": "المادة 2 - قانون العقوبات المصري",
+          "article_number": "2",
+          "law_name": "قانون العقوبات المصري",
+          "legal_domain": "criminal_law",
+          "score": 0.715,
+          "rerank_score": 1.345,
+          "section_level": "قانون العقوبات المصري",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:3",
+            "domain_alignment_boost",
+            "criminal_domain_hint",
+            "exact_offense_match"
+          ]
+        },
+        {
+          "title": "المادة 51 - قانون العقوبات المصري",
+          "article_number": "51",
+          "law_name": "قانون العقوبات المصري",
+          "legal_domain": "criminal_law",
+          "score": 0.32,
+          "rerank_score": 0.93,
+          "section_level": "الباب السابع: العود",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:2",
+            "domain_alignment_boost",
+            "criminal_domain_hint",
+            "exact_offense_match"
+          ]
+        },
+        {
+          "title": "المادة 293 - قانون العقوبات المصري",
+          "article_number": "293",
+          "law_name": "قانون العقوبات المصري",
+          "legal_domain": "criminal_law",
+          "score": 0.59,
+          "rerank_score": 0.74,
+          "section_level": "قانون العقوبات المصري",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:3",
+            "domain_alignment_boost",
+            "criminal_domain_hint"
+          ]
+        }
+      ],
+      "target_window_results": [
+        {
+          "title": "المادة 2 - قانون العقوبات المصري",
+          "article_number": "2",
+          "law_name": "قانون العقوبات المصري",
+          "legal_domain": "criminal_law",
+          "score": 0.715,
+          "rerank_score": 1.345,
+          "section_level": "قانون العقوبات المصري",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:3",
+            "domain_alignment_boost",
+            "criminal_domain_hint",
+            "exact_offense_match"
+          ]
+        },
+        {
+          "title": "المادة 51 - قانون العقوبات المصري",
+          "article_number": "51",
+          "law_name": "قانون العقوبات المصري",
+          "legal_domain": "criminal_law",
+          "score": 0.32,
+          "rerank_score": 0.93,
+          "section_level": "الباب السابع: العود",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:2",
+            "domain_alignment_boost",
+            "criminal_domain_hint",
+            "exact_offense_match"
+          ]
+        },
+        {
+          "title": "المادة 293 - قانون العقوبات المصري",
+          "article_number": "293",
+          "law_name": "قانون العقوبات المصري",
+          "legal_domain": "criminal_law",
+          "score": 0.59,
+          "rerank_score": 0.74,
+          "section_level": "قانون العقوبات المصري",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:3",
+            "domain_alignment_boost",
+            "criminal_domain_hint"
+          ]
+        }
+      ],
+      "notes": "يجب أن تظهر مواد التزوير لا جرائم أخرى قريبة."
+    },
+    {
+      "id": "criminal_h_004",
+      "domain": "criminal_law",
+      "query_type": "specific",
+      "query": "ما هي عقوبة الرشوة للموظف العام؟",
+      "passed": false,
+      "evaluation_reason": "top1 keyword hit ratio=0.0 was below threshold; best-in-window=0.3333; top1 did not match accepted topic terms; topk_topic_hit=True, best_topic_rate=0.5; top1 did not satisfy the accepted topic/section specificity criteria; expected match appeared within target window but not at top1",
+      "why_passed": [
+        "top1 domain matched expected domain 'criminal_law'",
+        "top1 law matched expected law"
+      ],
+      "why_failed": [
+        "top1 keyword hit ratio=0.0 was below threshold; best-in-window=0.3333",
+        "top1 did not match accepted topic terms; topk_topic_hit=True, best_topic_rate=0.5",
+        "top1 did not satisfy the accepted topic/section specificity criteria",
+        "expected match appeared within target window but not at top1"
+      ],
+      "failure_category": "generic_article_bias",
+      "expected": {
+        "expected_domain": "criminal_law",
+        "expected_law_name": "قانون العقوبات المصري",
+        "expected_article_numbers": [],
+        "expected_keywords": [
+          "الرشوة",
+          "الموظف العام",
+          "عقوبة"
+        ],
+        "accepted_topic_terms": [
+          "الرشوة",
+          "الموظف العام"
+        ],
+        "top_k_success": 3
+      },
+      "metrics": {
+        "exact_top1_domain_accuracy": true,
+        "exact_top3_domain_hit_rate": true,
+        "exact_top1_law_accuracy": true,
+        "exact_top3_law_hit_rate": true,
+        "top1_expected_keyword_hit_rate": 0.0,
+        "topk_expected_keyword_hit_rate": 0.3333,
+        "top1_expected_article_match": null,
+        "topk_expected_article_hit": null,
+        "top1_accepted_topic_hit": false,
+        "topk_accepted_topic_hit": true,
+        "top1_accepted_topic_match_rate": 0.0,
+        "topk_accepted_topic_match_rate": 0.5,
+        "top1_accepted_section_hit": null,
+        "topk_accepted_section_hit": null,
+        "top1_accepted_section_match_rate": null,
+        "topk_accepted_section_match_rate": null,
+        "top1_context_success": false,
+        "topk_context_hit": true,
+        "benchmark_window_domain_hit": true,
+        "benchmark_window_law_hit": true,
+        "benchmark_window_passed": true,
+        "out_of_domain_reject_rate": null
+      },
+      "top_result": {
+        "title": "المادة 377 - قانون العقوبات المصري",
+        "article_number": "377",
+        "law_name": "قانون العقوبات المصري",
+        "legal_domain": "criminal_law",
+        "score": 0.653478,
+        "rerank_score": 0.853478,
+        "section_level": "الكتاب الرابع > المخالفات المتعلقة بالأمن العام أو الراحة العمومية",
+        "quality_warnings": [],
+        "rank_explanation": [
+          "specific_query_bias",
+          "supporting_chunks:4",
+          "domain_alignment_boost",
+          "criminal_domain_hint"
+        ]
+      },
+      "top3_results": [
+        {
+          "title": "المادة 377 - قانون العقوبات المصري",
+          "article_number": "377",
+          "law_name": "قانون العقوبات المصري",
+          "legal_domain": "criminal_law",
+          "score": 0.653478,
+          "rerank_score": 0.853478,
+          "section_level": "الكتاب الرابع > المخالفات المتعلقة بالأمن العام أو الراحة العمومية",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:4",
+            "domain_alignment_boost",
+            "criminal_domain_hint"
+          ]
+        },
+        {
+          "title": "المادة 309 مكرر (أ) - قانون العقوبات المصري",
+          "article_number": "309 مكرر (أ)",
+          "law_name": "قانون العقوبات المصري",
+          "legal_domain": "criminal_law",
+          "score": 0.636667,
+          "rerank_score": 0.851667,
+          "section_level": "قانون العقوبات المصري",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:2",
+            "domain_alignment_boost",
+            "criminal_domain_hint"
+          ]
+        },
+        {
+          "title": "المادة 78 - قانون العقوبات المصري",
+          "article_number": "78",
+          "law_name": "قانون العقوبات المصري",
+          "legal_domain": "criminal_law",
+          "score": 0.61,
+          "rerank_score": 0.83,
+          "section_level": "الكتاب الثاني > الجنايات المضرة بأمن الحكومة من جهة الخارج",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:4",
+            "domain_alignment_boost",
+            "criminal_domain_hint"
+          ]
+        }
+      ],
+      "target_window_results": [
+        {
+          "title": "المادة 377 - قانون العقوبات المصري",
+          "article_number": "377",
+          "law_name": "قانون العقوبات المصري",
+          "legal_domain": "criminal_law",
+          "score": 0.653478,
+          "rerank_score": 0.853478,
+          "section_level": "الكتاب الرابع > المخالفات المتعلقة بالأمن العام أو الراحة العمومية",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:4",
+            "domain_alignment_boost",
+            "criminal_domain_hint"
+          ]
+        },
+        {
+          "title": "المادة 309 مكرر (أ) - قانون العقوبات المصري",
+          "article_number": "309 مكرر (أ)",
+          "law_name": "قانون العقوبات المصري",
+          "legal_domain": "criminal_law",
+          "score": 0.636667,
+          "rerank_score": 0.851667,
+          "section_level": "قانون العقوبات المصري",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:2",
+            "domain_alignment_boost",
+            "criminal_domain_hint"
+          ]
+        },
+        {
+          "title": "المادة 78 - قانون العقوبات المصري",
+          "article_number": "78",
+          "law_name": "قانون العقوبات المصري",
+          "legal_domain": "criminal_law",
+          "score": 0.61,
+          "rerank_score": 0.83,
+          "section_level": "الكتاب الثاني > الجنايات المضرة بأمن الحكومة من جهة الخارج",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:4",
+            "domain_alignment_boost",
+            "criminal_domain_hint"
+          ]
+        }
+      ],
+      "notes": "يجب أن تتقدم مواد الرشوة الوظيفية."
+    },
+    {
+      "id": "criminal_h_005",
+      "domain": "criminal_law",
+      "query_type": "general",
+      "query": "ما أحكام العود في الجريمة؟",
+      "passed": true,
+      "evaluation_reason": "top1 domain matched expected domain 'criminal_law'; top1 law matched expected law; top1 keyword hit ratio=1.0; top1 matched accepted topic terms with rate=1.0",
+      "why_passed": [
+        "top1 domain matched expected domain 'criminal_law'",
+        "top1 law matched expected law",
+        "top1 keyword hit ratio=1.0",
+        "top1 matched accepted topic terms with rate=1.0"
+      ],
+      "why_failed": [],
+      "failure_category": null,
+      "expected": {
+        "expected_domain": "criminal_law",
+        "expected_law_name": "قانون العقوبات المصري",
+        "expected_article_numbers": [],
+        "expected_keywords": [
+          "العود",
+          "الجريمة"
+        ],
+        "accepted_topic_terms": [
+          "العود"
+        ],
+        "top_k_success": 3
+      },
+      "metrics": {
+        "exact_top1_domain_accuracy": true,
+        "exact_top3_domain_hit_rate": true,
+        "exact_top1_law_accuracy": true,
+        "exact_top3_law_hit_rate": true,
+        "top1_expected_keyword_hit_rate": 1.0,
+        "topk_expected_keyword_hit_rate": 1.0,
+        "top1_expected_article_match": null,
+        "topk_expected_article_hit": null,
+        "top1_accepted_topic_hit": true,
+        "topk_accepted_topic_hit": true,
+        "top1_accepted_topic_match_rate": 1.0,
+        "topk_accepted_topic_match_rate": 1.0,
+        "top1_accepted_section_hit": null,
+        "topk_accepted_section_hit": null,
+        "top1_accepted_section_match_rate": null,
+        "topk_accepted_section_match_rate": null,
+        "top1_context_success": true,
+        "topk_context_hit": true,
+        "benchmark_window_domain_hit": true,
+        "benchmark_window_law_hit": true,
+        "benchmark_window_passed": true,
+        "out_of_domain_reject_rate": null
+      },
+      "top_result": {
+        "title": "المادة 52 - قانون العقوبات المصري",
+        "article_number": "52",
+        "law_name": "قانون العقوبات المصري",
+        "legal_domain": "criminal_law",
+        "score": 0.611739,
+        "rerank_score": 1.028406,
+        "section_level": "الباب السابع: العود",
+        "quality_warnings": [],
+        "rank_explanation": [
+          "specific_query_bias",
+          "strong_summary_overlap",
+          "supporting_chunks:3"
+        ]
+      },
+      "top3_results": [
+        {
+          "title": "المادة 52 - قانون العقوبات المصري",
+          "article_number": "52",
+          "law_name": "قانون العقوبات المصري",
+          "legal_domain": "criminal_law",
+          "score": 0.611739,
+          "rerank_score": 1.028406,
+          "section_level": "الباب السابع: العود",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "strong_summary_overlap",
+            "supporting_chunks:3"
+          ]
+        },
+        {
+          "title": "المادة 296 - قانون العمل المصري",
+          "article_number": "296",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.57,
+          "rerank_score": 0.966667,
+          "section_level": "الكتاب الخامس > الباب الثانى",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "strong_summary_overlap",
+            "supporting_chunks:2"
+          ]
+        },
+        {
+          "title": "المادة 49 - قانون العقوبات المصري",
+          "article_number": "49",
+          "law_name": "قانون العقوبات المصري",
+          "legal_domain": "criminal_law",
+          "score": 0.59,
+          "rerank_score": 0.846667,
+          "section_level": "الباب السابع: العود",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:3"
+          ]
+        }
+      ],
+      "target_window_results": [
+        {
+          "title": "المادة 52 - قانون العقوبات المصري",
+          "article_number": "52",
+          "law_name": "قانون العقوبات المصري",
+          "legal_domain": "criminal_law",
+          "score": 0.611739,
+          "rerank_score": 1.028406,
+          "section_level": "الباب السابع: العود",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "strong_summary_overlap",
+            "supporting_chunks:3"
+          ]
+        },
+        {
+          "title": "المادة 296 - قانون العمل المصري",
+          "article_number": "296",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.57,
+          "rerank_score": 0.966667,
+          "section_level": "الكتاب الخامس > الباب الثانى",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "strong_summary_overlap",
+            "supporting_chunks:2"
+          ]
+        },
+        {
+          "title": "المادة 49 - قانون العقوبات المصري",
+          "article_number": "49",
+          "law_name": "قانون العقوبات المصري",
+          "legal_domain": "criminal_law",
+          "score": 0.59,
+          "rerank_score": 0.846667,
+          "section_level": "الباب السابع: العود",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:3"
+          ]
+        }
+      ],
+      "notes": "مواد العود يجب أن تظهر في المراكز الأولى."
+    },
+    {
+      "id": "constitutional_h_001",
+      "domain": "constitutional_law",
+      "query_type": "specific",
+      "query": "ما هي المساواة أمام القانون؟",
+      "passed": true,
+      "evaluation_reason": "top1 domain matched expected domain 'constitutional_law'; top1 law matched expected law; top1 keyword hit ratio=0.5; top1 matched expected article number",
+      "why_passed": [
+        "top1 domain matched expected domain 'constitutional_law'",
+        "top1 law matched expected law",
+        "top1 keyword hit ratio=0.5",
+        "top1 matched expected article number"
+      ],
+      "why_failed": [],
+      "failure_category": null,
+      "expected": {
+        "expected_domain": "constitutional_law",
+        "expected_law_name": "دستور جمهورية مصر العربية",
+        "expected_article_numbers": [
+          "53"
+        ],
+        "expected_keywords": [
+          "المساواة",
+          "القانون"
+        ],
+        "top_k_success": 3
+      },
+      "metrics": {
+        "exact_top1_domain_accuracy": true,
+        "exact_top3_domain_hit_rate": true,
+        "exact_top1_law_accuracy": true,
+        "exact_top3_law_hit_rate": true,
+        "top1_expected_keyword_hit_rate": 0.5,
+        "topk_expected_keyword_hit_rate": 0.5,
+        "top1_expected_article_match": true,
+        "topk_expected_article_hit": true,
+        "top1_accepted_topic_hit": null,
+        "topk_accepted_topic_hit": null,
+        "top1_accepted_topic_match_rate": null,
+        "topk_accepted_topic_match_rate": null,
+        "top1_accepted_section_hit": null,
+        "topk_accepted_section_hit": null,
+        "top1_accepted_section_match_rate": null,
+        "topk_accepted_section_match_rate": null,
+        "top1_context_success": true,
+        "topk_context_hit": true,
+        "benchmark_window_domain_hit": true,
+        "benchmark_window_law_hit": true,
+        "benchmark_window_passed": true,
+        "out_of_domain_reject_rate": null
+      },
+      "top_result": {
+        "title": "المادة 53 - دستور جمهورية مصر العربية",
+        "article_number": "53",
+        "law_name": "دستور جمهورية مصر العربية",
+        "legal_domain": "constitutional_law",
+        "score": 0.57,
+        "rerank_score": 0.853333,
+        "section_level": "الباب الثالث > الحقوق والحريات والواجبات العامة",
+        "quality_warnings": [],
+        "rank_explanation": [
+          "specific_query_bias",
+          "supporting_chunks:2"
+        ]
+      },
+      "top3_results": [
+        {
+          "title": "المادة 53 - دستور جمهورية مصر العربية",
+          "article_number": "53",
+          "law_name": "دستور جمهورية مصر العربية",
+          "legal_domain": "constitutional_law",
+          "score": 0.57,
+          "rerank_score": 0.853333,
+          "section_level": "الباب الثالث > الحقوق والحريات والواجبات العامة",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:2"
+          ]
+        },
+        {
+          "title": "المادة 197 - دستور جمهورية مصر العربية",
+          "article_number": "197",
+          "law_name": "دستور جمهورية مصر العربية",
+          "legal_domain": "constitutional_law",
+          "score": 0.34,
+          "rerank_score": 0.756667,
+          "section_level": "الباب الخامس > نظام الحكم > الفصل الخامس > الهيئات القضائية",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "strong_summary_overlap",
+            "supporting_chunks:3"
+          ]
+        },
+        {
+          "title": "المادة 151 - قانون العمل المصري",
+          "article_number": "151",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.55,
+          "rerank_score": 0.733333,
+          "section_level": "الكتاب الثالث > الباب الأول",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:1",
+            "general_article_penalty"
+          ]
+        }
+      ],
+      "target_window_results": [
+        {
+          "title": "المادة 53 - دستور جمهورية مصر العربية",
+          "article_number": "53",
+          "law_name": "دستور جمهورية مصر العربية",
+          "legal_domain": "constitutional_law",
+          "score": 0.57,
+          "rerank_score": 0.853333,
+          "section_level": "الباب الثالث > الحقوق والحريات والواجبات العامة",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:2"
+          ]
+        },
+        {
+          "title": "المادة 197 - دستور جمهورية مصر العربية",
+          "article_number": "197",
+          "law_name": "دستور جمهورية مصر العربية",
+          "legal_domain": "constitutional_law",
+          "score": 0.34,
+          "rerank_score": 0.756667,
+          "section_level": "الباب الخامس > نظام الحكم > الفصل الخامس > الهيئات القضائية",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "strong_summary_overlap",
+            "supporting_chunks:3"
+          ]
+        },
+        {
+          "title": "المادة 151 - قانون العمل المصري",
+          "article_number": "151",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.55,
+          "rerank_score": 0.733333,
+          "section_level": "الكتاب الثالث > الباب الأول",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:1",
+            "general_article_penalty"
+          ]
+        }
+      ],
+      "notes": "يفضل أن تكون المادة 53 أو ما يقاربها في القمة."
+    },
+    {
+      "id": "constitutional_h_002",
+      "domain": "constitutional_law",
+      "query_type": "specific",
+      "query": "ما هي حرية الصحافة والإعلام؟",
+      "passed": true,
+      "evaluation_reason": "top1 domain matched expected domain 'constitutional_law'; top1 law matched expected law; top1 keyword hit ratio=1.0",
+      "why_passed": [
+        "top1 domain matched expected domain 'constitutional_law'",
+        "top1 law matched expected law",
+        "top1 keyword hit ratio=1.0"
+      ],
+      "why_failed": [],
+      "failure_category": null,
+      "expected": {
+        "expected_domain": "constitutional_law",
+        "expected_law_name": "دستور جمهورية مصر العربية",
+        "expected_article_numbers": [],
+        "expected_keywords": [
+          "الصحافة",
+          "الإعلام",
+          "حرية"
+        ],
+        "top_k_success": 3
+      },
+      "metrics": {
+        "exact_top1_domain_accuracy": true,
+        "exact_top3_domain_hit_rate": true,
+        "exact_top1_law_accuracy": true,
+        "exact_top3_law_hit_rate": true,
+        "top1_expected_keyword_hit_rate": 1.0,
+        "topk_expected_keyword_hit_rate": 1.0,
+        "top1_expected_article_match": null,
+        "topk_expected_article_hit": null,
+        "top1_accepted_topic_hit": null,
+        "topk_accepted_topic_hit": null,
+        "top1_accepted_topic_match_rate": null,
+        "topk_accepted_topic_match_rate": null,
+        "top1_accepted_section_hit": null,
+        "topk_accepted_section_hit": null,
+        "top1_accepted_section_match_rate": null,
+        "topk_accepted_section_match_rate": null,
+        "top1_context_success": true,
+        "topk_context_hit": true,
+        "benchmark_window_domain_hit": true,
+        "benchmark_window_law_hit": true,
+        "benchmark_window_passed": true,
+        "out_of_domain_reject_rate": null
+      },
+      "top_result": {
+        "title": "المادة 211 - دستور جمهورية مصر العربية",
+        "article_number": "211",
+        "law_name": "دستور جمهورية مصر العربية",
+        "legal_domain": "constitutional_law",
+        "score": 0.756667,
+        "rerank_score": 1.193334,
+        "section_level": "الباب الخامس > نظام الحكم > الفصل العاشر > المجلس الأعلى لتنظيم الإعلام",
+        "quality_warnings": [],
+        "rank_explanation": [
+          "specific_query_bias",
+          "supporting_chunks:3"
+        ]
+      },
+      "top3_results": [
+        {
+          "title": "المادة 211 - دستور جمهورية مصر العربية",
+          "article_number": "211",
+          "law_name": "دستور جمهورية مصر العربية",
+          "legal_domain": "constitutional_law",
+          "score": 0.756667,
+          "rerank_score": 1.193334,
+          "section_level": "الباب الخامس > نظام الحكم > الفصل العاشر > المجلس الأعلى لتنظيم الإعلام",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:3"
+          ]
+        },
+        {
+          "title": "المادة 70 - دستور جمهورية مصر العربية",
+          "article_number": "70",
+          "law_name": "دستور جمهورية مصر العربية",
+          "legal_domain": "constitutional_law",
+          "score": 0.57,
+          "rerank_score": 0.966667,
+          "section_level": "الباب الثالث > الحقوق والحريات والواجبات العامة",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "strong_summary_overlap",
+            "supporting_chunks:2"
+          ]
+        },
+        {
+          "title": "المادة 63 - قانون العقوبات المصري",
+          "article_number": "63",
+          "law_name": "قانون العقوبات المصري",
+          "legal_domain": "criminal_law",
+          "score": 0.54,
+          "rerank_score": 0.62,
+          "section_level": "الباب التاسع: أسباب الإباحة وموانع العقاب",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:2"
+          ]
+        }
+      ],
+      "target_window_results": [
+        {
+          "title": "المادة 211 - دستور جمهورية مصر العربية",
+          "article_number": "211",
+          "law_name": "دستور جمهورية مصر العربية",
+          "legal_domain": "constitutional_law",
+          "score": 0.756667,
+          "rerank_score": 1.193334,
+          "section_level": "الباب الخامس > نظام الحكم > الفصل العاشر > المجلس الأعلى لتنظيم الإعلام",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:3"
+          ]
+        },
+        {
+          "title": "المادة 70 - دستور جمهورية مصر العربية",
+          "article_number": "70",
+          "law_name": "دستور جمهورية مصر العربية",
+          "legal_domain": "constitutional_law",
+          "score": 0.57,
+          "rerank_score": 0.966667,
+          "section_level": "الباب الثالث > الحقوق والحريات والواجبات العامة",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "strong_summary_overlap",
+            "supporting_chunks:2"
+          ]
+        },
+        {
+          "title": "المادة 63 - قانون العقوبات المصري",
+          "article_number": "63",
+          "law_name": "قانون العقوبات المصري",
+          "legal_domain": "criminal_law",
+          "score": 0.54,
+          "rerank_score": 0.62,
+          "section_level": "الباب التاسع: أسباب الإباحة وموانع العقاب",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:2"
+          ]
+        }
+      ],
+      "notes": "ينبغي أن تظهر مواد الصحافة أو الإعلام أو التعبير."
+    },
+    {
+      "id": "constitutional_h_003",
+      "domain": "constitutional_law",
+      "query_type": "specific",
+      "query": "ما هو الحق في تكوين الجمعيات؟",
+      "passed": true,
+      "evaluation_reason": "top1 domain matched expected domain 'constitutional_law'; top1 law matched expected law; top1 keyword hit ratio=1.0; top1 matched expected article number",
+      "why_passed": [
+        "top1 domain matched expected domain 'constitutional_law'",
+        "top1 law matched expected law",
+        "top1 keyword hit ratio=1.0",
+        "top1 matched expected article number"
+      ],
+      "why_failed": [],
+      "failure_category": null,
+      "expected": {
+        "expected_domain": "constitutional_law",
+        "expected_law_name": "دستور جمهورية مصر العربية",
+        "expected_article_numbers": [
+          "75"
+        ],
+        "expected_keywords": [
+          "تكوين الجمعيات",
+          "الجمعيات"
+        ],
+        "top_k_success": 3
+      },
+      "metrics": {
+        "exact_top1_domain_accuracy": true,
+        "exact_top3_domain_hit_rate": true,
+        "exact_top1_law_accuracy": true,
+        "exact_top3_law_hit_rate": true,
+        "top1_expected_keyword_hit_rate": 1.0,
+        "topk_expected_keyword_hit_rate": 1.0,
+        "top1_expected_article_match": true,
+        "topk_expected_article_hit": true,
+        "top1_accepted_topic_hit": null,
+        "topk_accepted_topic_hit": null,
+        "top1_accepted_topic_match_rate": null,
+        "topk_accepted_topic_match_rate": null,
+        "top1_accepted_section_hit": null,
+        "topk_accepted_section_hit": null,
+        "top1_accepted_section_match_rate": null,
+        "topk_accepted_section_match_rate": null,
+        "top1_context_success": true,
+        "topk_context_hit": true,
+        "benchmark_window_domain_hit": true,
+        "benchmark_window_law_hit": true,
+        "benchmark_window_passed": true,
+        "out_of_domain_reject_rate": null
+      },
+      "top_result": {
+        "title": "المادة 75 - دستور جمهورية مصر العربية",
+        "article_number": "75",
+        "law_name": "دستور جمهورية مصر العربية",
+        "legal_domain": "constitutional_law",
+        "score": 0.67,
+        "rerank_score": 1.066667,
+        "section_level": "الباب الثالث > الحقوق والحريات والواجبات العامة",
+        "quality_warnings": [],
+        "rank_explanation": [
+          "specific_query_bias",
+          "strong_summary_overlap",
+          "supporting_chunks:2"
+        ]
+      },
+      "top3_results": [
+        {
+          "title": "المادة 75 - دستور جمهورية مصر العربية",
+          "article_number": "75",
+          "law_name": "دستور جمهورية مصر العربية",
+          "legal_domain": "constitutional_law",
+          "score": 0.67,
+          "rerank_score": 1.066667,
+          "section_level": "الباب الثالث > الحقوق والحريات والواجبات العامة",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "strong_summary_overlap",
+            "supporting_chunks:2"
+          ]
+        },
+        {
+          "title": "المادة 375 - قانون العقوبات المصري",
+          "article_number": "375",
+          "law_name": "قانون العقوبات المصري",
+          "legal_domain": "criminal_law",
+          "score": 0.55,
+          "rerank_score": 0.813333,
+          "section_level": "قانون العقوبات المصري",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:1"
+          ]
+        },
+        {
+          "title": "المادة 649 - القانون المدني المصري",
+          "article_number": "649",
+          "law_name": "القانون المدني المصري",
+          "legal_domain": "civil_law",
+          "score": 0.532,
+          "rerank_score": 0.6496,
+          "section_level": "الكتاب الثاني > الفصل الأول",
+          "quality_warnings": [
+            "broken_punctuation"
+          ],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:1"
+          ]
+        }
+      ],
+      "target_window_results": [
+        {
+          "title": "المادة 75 - دستور جمهورية مصر العربية",
+          "article_number": "75",
+          "law_name": "دستور جمهورية مصر العربية",
+          "legal_domain": "constitutional_law",
+          "score": 0.67,
+          "rerank_score": 1.066667,
+          "section_level": "الباب الثالث > الحقوق والحريات والواجبات العامة",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "strong_summary_overlap",
+            "supporting_chunks:2"
+          ]
+        },
+        {
+          "title": "المادة 375 - قانون العقوبات المصري",
+          "article_number": "375",
+          "law_name": "قانون العقوبات المصري",
+          "legal_domain": "criminal_law",
+          "score": 0.55,
+          "rerank_score": 0.813333,
+          "section_level": "قانون العقوبات المصري",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:1"
+          ]
+        },
+        {
+          "title": "المادة 649 - القانون المدني المصري",
+          "article_number": "649",
+          "law_name": "القانون المدني المصري",
+          "legal_domain": "civil_law",
+          "score": 0.532,
+          "rerank_score": 0.6496,
+          "section_level": "الكتاب الثاني > الفصل الأول",
+          "quality_warnings": [
+            "broken_punctuation"
+          ],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:1"
+          ]
+        }
+      ],
+      "notes": "يفضل ظهور المادة 75 أو نتيجة مكافئة."
+    },
+    {
+      "id": "constitutional_h_004",
+      "domain": "constitutional_law",
+      "query_type": "tricky",
+      "query": "ما هي مبادئ الدستور؟",
+      "passed": true,
+      "evaluation_reason": "top1 domain matched expected domain 'constitutional_law'; top1 law matched expected law; top1 keyword hit ratio=0.5; top1 matched accepted topic terms with rate=0.5; top1 matched accepted section terms with rate=1.0",
+      "why_passed": [
+        "top1 domain matched expected domain 'constitutional_law'",
+        "top1 law matched expected law",
+        "top1 keyword hit ratio=0.5",
+        "top1 matched accepted topic terms with rate=0.5",
+        "top1 matched accepted section terms with rate=1.0"
+      ],
+      "why_failed": [],
+      "failure_category": null,
+      "expected": {
+        "expected_domain": "constitutional_law",
+        "expected_law_name": "دستور جمهورية مصر العربية",
+        "expected_article_numbers": [],
+        "expected_keywords": [
+          "مبادئ الدستور",
+          "الديباجة"
+        ],
+        "accepted_topic_terms": [
+          "مبادئ الدستور",
+          "الديباجة"
+        ],
+        "accepted_section_terms": [
+          "الديباجة"
+        ],
+        "top_k_success": 3
+      },
+      "metrics": {
+        "exact_top1_domain_accuracy": true,
+        "exact_top3_domain_hit_rate": true,
+        "exact_top1_law_accuracy": true,
+        "exact_top3_law_hit_rate": true,
+        "top1_expected_keyword_hit_rate": 0.5,
+        "topk_expected_keyword_hit_rate": 0.5,
+        "top1_expected_article_match": null,
+        "topk_expected_article_hit": null,
+        "top1_accepted_topic_hit": true,
+        "topk_accepted_topic_hit": true,
+        "top1_accepted_topic_match_rate": 0.5,
+        "topk_accepted_topic_match_rate": 0.5,
+        "top1_accepted_section_hit": true,
+        "topk_accepted_section_hit": true,
+        "top1_accepted_section_match_rate": 1.0,
+        "topk_accepted_section_match_rate": 1.0,
+        "top1_context_success": true,
+        "topk_context_hit": true,
+        "benchmark_window_domain_hit": true,
+        "benchmark_window_law_hit": true,
+        "benchmark_window_passed": true,
+        "out_of_domain_reject_rate": null
+      },
+      "top_result": {
+        "title": "الديباجة - دستور جمهورية مصر العربية",
+        "article_number": "الديباجة",
+        "law_name": "دستور جمهورية مصر العربية",
+        "legal_domain": "constitutional_law",
+        "score": 0.705,
+        "rerank_score": 1.285,
+        "section_level": "الديباجة",
+        "quality_warnings": [],
+        "rank_explanation": [
+          "specific_query_bias",
+          "supporting_chunks:5",
+          "domain_alignment_boost",
+          "preamble_boost"
+        ]
+      },
+      "top3_results": [
+        {
+          "title": "الديباجة - دستور جمهورية مصر العربية",
+          "article_number": "الديباجة",
+          "law_name": "دستور جمهورية مصر العربية",
+          "legal_domain": "constitutional_law",
+          "score": 0.705,
+          "rerank_score": 1.285,
+          "section_level": "الديباجة",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:5",
+            "domain_alignment_boost",
+            "preamble_boost"
+          ]
+        },
+        {
+          "title": "المادة 204 - دستور جمهورية مصر العربية",
+          "article_number": "204",
+          "law_name": "دستور جمهورية مصر العربية",
+          "legal_domain": "constitutional_law",
+          "score": 0.55,
+          "rerank_score": 0.92,
+          "section_level": "الباب الخامس > نظام الحكم > الفصل الثامن: القوات المسلحة والشرطة > الفرع الثالث > القضاء العسكرى",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:1",
+            "domain_alignment_boost"
+          ]
+        },
+        {
+          "title": "المادة 227 - دستور جمهورية مصر العربية",
+          "article_number": "227",
+          "law_name": "دستور جمهورية مصر العربية",
+          "legal_domain": "constitutional_law",
+          "score": 0.53,
+          "rerank_score": 0.91,
+          "section_level": "الباب السادس > الأحكام العامة والانتقالية) 1 (",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "strong_summary_overlap",
+            "domain_alignment_boost"
+          ]
+        }
+      ],
+      "target_window_results": [
+        {
+          "title": "الديباجة - دستور جمهورية مصر العربية",
+          "article_number": "الديباجة",
+          "law_name": "دستور جمهورية مصر العربية",
+          "legal_domain": "constitutional_law",
+          "score": 0.705,
+          "rerank_score": 1.285,
+          "section_level": "الديباجة",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:5",
+            "domain_alignment_boost",
+            "preamble_boost"
+          ]
+        },
+        {
+          "title": "المادة 204 - دستور جمهورية مصر العربية",
+          "article_number": "204",
+          "law_name": "دستور جمهورية مصر العربية",
+          "legal_domain": "constitutional_law",
+          "score": 0.55,
+          "rerank_score": 0.92,
+          "section_level": "الباب الخامس > نظام الحكم > الفصل الثامن: القوات المسلحة والشرطة > الفرع الثالث > القضاء العسكرى",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:1",
+            "domain_alignment_boost"
+          ]
+        },
+        {
+          "title": "المادة 227 - دستور جمهورية مصر العربية",
+          "article_number": "227",
+          "law_name": "دستور جمهورية مصر العربية",
+          "legal_domain": "constitutional_law",
+          "score": 0.53,
+          "rerank_score": 0.91,
+          "section_level": "الباب السادس > الأحكام العامة والانتقالية) 1 (",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "strong_summary_overlap",
+            "domain_alignment_boost"
+          ]
+        }
+      ],
+      "notes": "هنا يمكن قبول الديباجة ضمن النتائج الأولى."
+    },
+    {
+      "id": "constitutional_h_005",
+      "domain": "constitutional_law",
+      "query_type": "specific",
+      "query": "ما هو الحق في المعلومات؟",
+      "passed": true,
+      "evaluation_reason": "top1 domain matched expected domain 'constitutional_law'; top1 law matched expected law; top1 keyword hit ratio=0.5; top1 matched expected article number",
+      "why_passed": [
+        "top1 domain matched expected domain 'constitutional_law'",
+        "top1 law matched expected law",
+        "top1 keyword hit ratio=0.5",
+        "top1 matched expected article number"
+      ],
+      "why_failed": [],
+      "failure_category": null,
+      "expected": {
+        "expected_domain": "constitutional_law",
+        "expected_law_name": "دستور جمهورية مصر العربية",
+        "expected_article_numbers": [
+          "68"
+        ],
+        "expected_keywords": [
+          "الحق في المعلومات",
+          "الوثائق الرسمية"
+        ],
+        "top_k_success": 3
+      },
+      "metrics": {
+        "exact_top1_domain_accuracy": true,
+        "exact_top3_domain_hit_rate": true,
+        "exact_top1_law_accuracy": true,
+        "exact_top3_law_hit_rate": true,
+        "top1_expected_keyword_hit_rate": 0.5,
+        "topk_expected_keyword_hit_rate": 0.5,
+        "top1_expected_article_match": true,
+        "topk_expected_article_hit": true,
+        "top1_accepted_topic_hit": null,
+        "topk_accepted_topic_hit": null,
+        "top1_accepted_topic_match_rate": null,
+        "topk_accepted_topic_match_rate": null,
+        "top1_accepted_section_hit": null,
+        "topk_accepted_section_hit": null,
+        "top1_accepted_section_match_rate": null,
+        "topk_accepted_section_match_rate": null,
+        "top1_context_success": true,
+        "topk_context_hit": true,
+        "benchmark_window_domain_hit": true,
+        "benchmark_window_law_hit": true,
+        "benchmark_window_passed": true,
+        "out_of_domain_reject_rate": null
+      },
+      "top_result": {
+        "title": "المادة 68 - دستور جمهورية مصر العربية",
+        "article_number": "68",
+        "law_name": "دستور جمهورية مصر العربية",
+        "legal_domain": "constitutional_law",
+        "score": 0.57,
+        "rerank_score": 0.91,
+        "section_level": "الباب الثالث > الحقوق والحريات والواجبات العامة",
+        "quality_warnings": [],
+        "rank_explanation": [
+          "specific_query_bias",
+          "strong_summary_overlap",
+          "supporting_chunks:2"
+        ]
+      },
+      "top3_results": [
+        {
+          "title": "المادة 68 - دستور جمهورية مصر العربية",
+          "article_number": "68",
+          "law_name": "دستور جمهورية مصر العربية",
+          "legal_domain": "constitutional_law",
+          "score": 0.57,
+          "rerank_score": 0.91,
+          "section_level": "الباب الثالث > الحقوق والحريات والواجبات العامة",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "strong_summary_overlap",
+            "supporting_chunks:2"
+          ]
+        },
+        {
+          "title": "المادة 134 - قانون العمل المصري",
+          "article_number": "134",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.55,
+          "rerank_score": 0.7,
+          "section_level": "الكتاب الثالث > الباب الأول",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:1",
+            "general_article_penalty"
+          ]
+        },
+        {
+          "title": "المادة 676 - القانون المدني المصري",
+          "article_number": "676",
+          "law_name": "القانون المدني المصري",
+          "legal_domain": "civil_law",
+          "score": 0.385333,
+          "rerank_score": 0.692933,
+          "section_level": "الكتاب الثاني > الفصل الثاني",
+          "quality_warnings": [
+            "broken_punctuation"
+          ],
+          "rank_explanation": [
+            "specific_query_bias",
+            "strong_summary_overlap",
+            "supporting_chunks:2"
+          ]
+        }
+      ],
+      "target_window_results": [
+        {
+          "title": "المادة 68 - دستور جمهورية مصر العربية",
+          "article_number": "68",
+          "law_name": "دستور جمهورية مصر العربية",
+          "legal_domain": "constitutional_law",
+          "score": 0.57,
+          "rerank_score": 0.91,
+          "section_level": "الباب الثالث > الحقوق والحريات والواجبات العامة",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "strong_summary_overlap",
+            "supporting_chunks:2"
+          ]
+        },
+        {
+          "title": "المادة 134 - قانون العمل المصري",
+          "article_number": "134",
+          "law_name": "قانون العمل المصري",
+          "legal_domain": "labor_law",
+          "score": 0.55,
+          "rerank_score": 0.7,
+          "section_level": "الكتاب الثالث > الباب الأول",
+          "quality_warnings": [],
+          "rank_explanation": [
+            "specific_query_bias",
+            "supporting_chunks:1",
+            "general_article_penalty"
+          ]
+        },
+        {
+          "title": "المادة 676 - القانون المدني المصري",
+          "article_number": "676",
+          "law_name": "القانون المدني المصري",
+          "legal_domain": "civil_law",
+          "score": 0.385333,
+          "rerank_score": 0.692933,
+          "section_level": "الكتاب الثاني > الفصل الثاني",
+          "quality_warnings": [
+            "broken_punctuation"
+          ],
+          "rank_explanation": [
+            "specific_query_bias",
+            "strong_summary_overlap",
+            "supporting_chunks:2"
+          ]
+        }
+      ],
+      "notes": "المادة 68 أو ما يقاربها يجب أن تتصدر."
+    },
+    {
+      "id": "ood_h_001",
+      "domain": "out_of_domain",
+      "query_type": "out_of_domain",
+      "query": "ما هي أحكام الطلاق؟",
+      "passed": true,
+      "evaluation_reason": "retriever returned explicit warning or no results for out-of-domain query",
+      "why_passed": [
+        "retriever returned explicit warning or no results for out-of-domain query"
+      ],
+      "why_failed": [],
+      "failure_category": null,
+      "expected": {
+        "expected_domain": "out_of_domain",
+        "expected_law_name": null,
+        "expected_article_numbers": [],
+        "expected_keywords": [
+          "الطلاق"
+        ],
+        "top_k_success": 3,
+        "expected_behavior": "reject_or_warn"
+      },
+      "metrics": {
+        "exact_top1_domain_accuracy": null,
+        "exact_top3_domain_hit_rate": null,
+        "exact_top1_law_accuracy": null,
+        "exact_top3_law_hit_rate": null,
+        "top1_expected_keyword_hit_rate": null,
+        "topk_expected_keyword_hit_rate": null,
+        "top1_expected_article_match": null,
+        "topk_expected_article_hit": null,
+        "top1_accepted_topic_hit": null,
+        "topk_accepted_topic_hit": null,
+        "top1_accepted_topic_match_rate": null,
+        "topk_accepted_topic_match_rate": null,
+        "top1_accepted_section_hit": null,
+        "topk_accepted_section_hit": null,
+        "top1_accepted_section_match_rate": null,
+        "topk_accepted_section_match_rate": null,
+        "top1_context_success": true,
+        "topk_context_hit": true,
+        "benchmark_window_domain_hit": false,
+        "benchmark_window_law_hit": false,
+        "benchmark_window_passed": true,
+        "out_of_domain_reject_rate": true
+      },
+      "top_result": null,
+      "top3_results": [],
+      "target_window_results": [],
+      "notes": "ليس ضمن corpus الحالي."
+    },
+    {
+      "id": "ood_h_002",
+      "domain": "out_of_domain",
+      "query_type": "out_of_domain",
+      "query": "ما هي حضانة الأطفال بعد الطلاق؟",
+      "passed": true,
+      "evaluation_reason": "retriever returned explicit warning or no results for out-of-domain query",
+      "why_passed": [
+        "retriever returned explicit warning or no results for out-of-domain query"
+      ],
+      "why_failed": [],
+      "failure_category": null,
+      "expected": {
+        "expected_domain": "out_of_domain",
+        "expected_law_name": null,
+        "expected_article_numbers": [],
+        "expected_keywords": [
+          "حضانة",
+          "الأطفال"
+        ],
+        "top_k_success": 3,
+        "expected_behavior": "reject_or_warn"
+      },
+      "metrics": {
+        "exact_top1_domain_accuracy": null,
+        "exact_top3_domain_hit_rate": null,
+        "exact_top1_law_accuracy": null,
+        "exact_top3_law_hit_rate": null,
+        "top1_expected_keyword_hit_rate": null,
+        "topk_expected_keyword_hit_rate": null,
+        "top1_expected_article_match": null,
+        "topk_expected_article_hit": null,
+        "top1_accepted_topic_hit": null,
+        "topk_accepted_topic_hit": null,
+        "top1_accepted_topic_match_rate": null,
+        "topk_accepted_topic_match_rate": null,
+        "top1_accepted_section_hit": null,
+        "topk_accepted_section_hit": null,
+        "top1_accepted_section_match_rate": null,
+        "topk_accepted_section_match_rate": null,
+        "top1_context_success": true,
+        "topk_context_hit": true,
+        "benchmark_window_domain_hit": false,
+        "benchmark_window_law_hit": false,
+        "benchmark_window_passed": true,
+        "out_of_domain_reject_rate": true
+      },
+      "top_result": null,
+      "top3_results": [],
+      "target_window_results": [],
+      "notes": "سؤال أسرة خارج corpus."
+    },
+    {
+      "id": "ood_h_003",
+      "domain": "out_of_domain",
+      "query_type": "out_of_domain",
+      "query": "ما هي نفقة المتعة؟",
+      "passed": true,
+      "evaluation_reason": "retriever returned explicit warning or no results for out-of-domain query",
+      "why_passed": [
+        "retriever returned explicit warning or no results for out-of-domain query"
+      ],
+      "why_failed": [],
+      "failure_category": null,
+      "expected": {
+        "expected_domain": "out_of_domain",
+        "expected_law_name": null,
+        "expected_article_numbers": [],
+        "expected_keywords": [
+          "نفقة المتعة"
+        ],
+        "top_k_success": 3,
+        "expected_behavior": "reject_or_warn"
+      },
+      "metrics": {
+        "exact_top1_domain_accuracy": null,
+        "exact_top3_domain_hit_rate": null,
+        "exact_top1_law_accuracy": null,
+        "exact_top3_law_hit_rate": null,
+        "top1_expected_keyword_hit_rate": null,
+        "topk_expected_keyword_hit_rate": null,
+        "top1_expected_article_match": null,
+        "topk_expected_article_hit": null,
+        "top1_accepted_topic_hit": null,
+        "topk_accepted_topic_hit": null,
+        "top1_accepted_topic_match_rate": null,
+        "topk_accepted_topic_match_rate": null,
+        "top1_accepted_section_hit": null,
+        "topk_accepted_section_hit": null,
+        "top1_accepted_section_match_rate": null,
+        "topk_accepted_section_match_rate": null,
+        "top1_context_success": true,
+        "topk_context_hit": true,
+        "benchmark_window_domain_hit": false,
+        "benchmark_window_law_hit": false,
+        "benchmark_window_passed": true,
+        "out_of_domain_reject_rate": true
+      },
+      "top_result": null,
+      "top3_results": [],
+      "target_window_results": [],
+      "notes": "خارج تغطية corpus الحالي."
+    },
+    {
+      "id": "ood_h_004",
+      "domain": "out_of_domain",
+      "query_type": "out_of_domain",
+      "query": "كيف يثبت النسب؟",
+      "passed": true,
+      "evaluation_reason": "retriever returned explicit warning or no results for out-of-domain query",
+      "why_passed": [
+        "retriever returned explicit warning or no results for out-of-domain query"
+      ],
+      "why_failed": [],
+      "failure_category": null,
+      "expected": {
+        "expected_domain": "out_of_domain",
+        "expected_law_name": null,
+        "expected_article_numbers": [],
+        "expected_keywords": [
+          "النسب"
+        ],
+        "top_k_success": 3,
+        "expected_behavior": "reject_or_warn"
+      },
+      "metrics": {
+        "exact_top1_domain_accuracy": null,
+        "exact_top3_domain_hit_rate": null,
+        "exact_top1_law_accuracy": null,
+        "exact_top3_law_hit_rate": null,
+        "top1_expected_keyword_hit_rate": null,
+        "topk_expected_keyword_hit_rate": null,
+        "top1_expected_article_match": null,
+        "topk_expected_article_hit": null,
+        "top1_accepted_topic_hit": null,
+        "topk_accepted_topic_hit": null,
+        "top1_accepted_topic_match_rate": null,
+        "topk_accepted_topic_match_rate": null,
+        "top1_accepted_section_hit": null,
+        "topk_accepted_section_hit": null,
+        "top1_accepted_section_match_rate": null,
+        "topk_accepted_section_match_rate": null,
+        "top1_context_success": true,
+        "topk_context_hit": true,
+        "benchmark_window_domain_hit": false,
+        "benchmark_window_law_hit": false,
+        "benchmark_window_passed": true,
+        "out_of_domain_reject_rate": true
+      },
+      "top_result": null,
+      "top3_results": [],
+      "target_window_results": [],
+      "notes": "ليس ضمن corpus الحالي."
+    },
+    {
+      "id": "ood_h_005",
+      "domain": "out_of_domain",
+      "query_type": "out_of_domain",
+      "query": "ما هو سن الحضانة؟",
+      "passed": true,
+      "evaluation_reason": "retriever returned explicit warning or no results for out-of-domain query",
+      "why_passed": [
+        "retriever returned explicit warning or no results for out-of-domain query"
+      ],
+      "why_failed": [],
+      "failure_category": null,
+      "expected": {
+        "expected_domain": "out_of_domain",
+        "expected_law_name": null,
+        "expected_article_numbers": [],
+        "expected_keywords": [
+          "سن الحضانة"
+        ],
+        "top_k_success": 3,
+        "expected_behavior": "reject_or_warn"
+      },
+      "metrics": {
+        "exact_top1_domain_accuracy": null,
+        "exact_top3_domain_hit_rate": null,
+        "exact_top1_law_accuracy": null,
+        "exact_top3_law_hit_rate": null,
+        "top1_expected_keyword_hit_rate": null,
+        "topk_expected_keyword_hit_rate": null,
+        "top1_expected_article_match": null,
+        "topk_expected_article_hit": null,
+        "top1_accepted_topic_hit": null,
+        "topk_accepted_topic_hit": null,
+        "top1_accepted_topic_match_rate": null,
+        "topk_accepted_topic_match_rate": null,
+        "top1_accepted_section_hit": null,
+        "topk_accepted_section_hit": null,
+        "top1_accepted_section_match_rate": null,
+        "topk_accepted_section_match_rate": null,
+        "top1_context_success": true,
+        "topk_context_hit": true,
+        "benchmark_window_domain_hit": false,
+        "benchmark_window_law_hit": false,
+        "benchmark_window_passed": true,
+        "out_of_domain_reject_rate": true
+      },
+      "top_result": null,
+      "top3_results": [],
+      "target_window_results": [],
+      "notes": "خارج نطاق corpus الحالي."
+    }
+  ]
+}
