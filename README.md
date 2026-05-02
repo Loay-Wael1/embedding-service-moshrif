@@ -1,3 +1,12 @@
+---
+title: Al-Mostashar Legal RAG API
+emoji: ⚖️
+colorFrom: blue
+colorTo: gray
+sdk: docker
+app_port: 7860
+---
+
 # Al-Mostashar Legal RAG API
 
 Backend API for **"المستشار"** — an Egyptian Legal RAG assistant.
@@ -205,6 +214,19 @@ python scripts/smoke_test_api.py --base-url http://127.0.0.1:8000
 
 This project includes a `Dockerfile`. For Hugging Face Spaces, use a Docker Space and set secrets/configuration in the Space settings.
 
+The Space repository is intentionally lightweight and contains application code only. Large runtime assets are stored in a separate Hugging Face Dataset repository:
+
+```text
+loaywael10/al-mostashar-legal-rag-assets
+```
+
+At runtime, the API downloads the required folders on the first legal query or when `/warmup` is called:
+
+- `./model/bge-m3`
+- `./qdrant_db_legal`
+
+Do not push `model/bge-m3` or `qdrant_db_legal` directly to the Space repository.
+
 Recommended Hugging Face variables:
 
 ```env
@@ -212,9 +234,14 @@ API_PORT=7860
 GEMINI_MODEL=gemini-2.5-flash
 PRELOAD_RETRIEVER=false
 CHAT_CONCISE_ANSWERS=true
+HF_ASSETS_REPO_ID=loaywael10/al-mostashar-legal-rag-assets
+HF_ASSETS_REPO_TYPE=dataset
+HF_ASSETS_REVISION=main
+HF_ASSETS_DOWNLOAD_ENABLED=true
 ```
 
 Set `GEMINI_API_KEY` in Hugging Face **Settings -> Secrets**.
+If the assets dataset is private, also set `HF_TOKEN` as a Space secret with read access.
 
 ## Performance Notes
 

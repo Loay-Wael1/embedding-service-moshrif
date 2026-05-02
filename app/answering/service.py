@@ -11,6 +11,7 @@ from app.llm import LLMError, MODE_MAX_TOKENS, OpenAICompatibleLLMClient, clean_
 from app.models import RetrievalFilters
 from app.preprocessing import normalize_legal_arabic
 from app.retrieval import LegalRetriever
+from app.runtime_assets import ensure_runtime_assets
 from app.settings import Settings, settings
 
 
@@ -73,6 +74,7 @@ class LegalAnswerService:
     @property
     def retriever(self) -> LegalRetriever:
         if self._retriever is None:
+            ensure_runtime_assets(config=self.settings)
             self._retriever = LegalRetriever(config=self.settings)
         return self._retriever
 

@@ -66,6 +66,12 @@ class Settings:
     index_batch_size: int = int(os.getenv("INDEX_BATCH_SIZE", "16"))
     include_law_records: bool = _env_bool("INDEX_INCLUDE_LAW_RECORDS", True)
 
+    hf_assets_repo_id: str = _env_str("HF_ASSETS_REPO_ID", "loaywael10/al-mostashar-legal-rag-assets")
+    hf_assets_repo_type: str = _env_str("HF_ASSETS_REPO_TYPE", "dataset")
+    hf_assets_revision: str = _env_str("HF_ASSETS_REVISION", "main")
+    hf_assets_download_enabled: bool = _env_bool("HF_ASSETS_DOWNLOAD_ENABLED", True)
+    hf_assets_cache_dir: str = _env_str("HF_ASSETS_CACHE_DIR", ".runtime_assets_cache")
+
     retrieval_top_k: int = int(os.getenv("RETRIEVAL_TOP_K", "5"))
     retrieval_chunk_limit: int = int(os.getenv("RETRIEVAL_CHUNK_LIMIT", "24"))
     retrieval_article_limit: int = int(os.getenv("RETRIEVAL_ARTICLE_LIMIT", "10"))

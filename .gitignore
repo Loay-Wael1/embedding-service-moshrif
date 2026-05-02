@@ -16,6 +16,7 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.runtime_assets_cache/
 .ipynb_checkpoints/
 
 # HuggingFace caches
@@ -28,6 +29,7 @@ Thumbs.db
 
 # Qdrant databases
 qdrant_db/
+qdrant_db_legal/
 hierarchical_retrieval/
 *.lock
 qdrant_db_legal/.lock

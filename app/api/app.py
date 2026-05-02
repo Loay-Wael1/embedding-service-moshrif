@@ -12,6 +12,7 @@ from app.answering.schemas import ChatResponse, CompactSourceCitation, CompactLL
 from app.api.schemas import EmbedBatchRequest, EmbedRequest, EmbedResponse, EmbeddingResultResponse, ServiceInfoResponse
 from app.embeddings.service import EmbeddingService, get_default_embedding_service
 from app.models import RetrievalFilters
+from app.runtime_assets import ensure_runtime_assets
 from app.settings import settings
 
 
@@ -30,6 +31,7 @@ def create_app(
         
         if settings.preload_retriever:
             logger.info("PRELOAD_RETRIEVER=true: Loading retriever and embedding models...")
+            ensure_runtime_assets()
             embedding_svc = app.state.embedding_service
             # Eagerly load model
             if not embedding_svc.is_loaded:
@@ -100,6 +102,7 @@ def create_app(
         """Loads models if they are not already loaded (e.g. after a cold start)."""
         answer_svc = _get_answer_service(request)
         embedding_svc = _get_service(request)
+        ensure_runtime_assets(config=getattr(embedding_svc, "settings", None))
         if not embedding_svc.is_loaded:
             embedding_svc._ensure_model()
         # Force retriever init

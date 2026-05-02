@@ -1,6 +1,6 @@
 .git
 .gitignore
-venv
+venv/
 .env
 .env.*
 __pycache__
@@ -9,8 +9,15 @@ __pycache__
 .pytest_cache
 .mypy_cache
 .ruff_cache
+.runtime_assets_cache
 .ipynb_checkpoints
 tests
+model/
+model/**
+qdrant_db_legal/
+qdrant_db_legal/**
+*.lock
+qdrant_db_legal/.lock
 *.log
 logs
 tmp
