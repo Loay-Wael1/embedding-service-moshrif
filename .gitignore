@@ -35,6 +35,8 @@ Thumbs.db
 # Qdrant databases
 qdrant_db/
 hierarchical_retrieval/
+*.lock
+qdrant_db_legal/.lock
 
 # Logs
 *.log

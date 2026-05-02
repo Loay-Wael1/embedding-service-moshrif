@@ -243,8 +243,8 @@ def create_app(
                 ),
             )
             
-            # Cache successful, safe responses
-            if not include_debug and chat_resp.answer_mode in {"identity", "conversation", "non_legal", "grounded", "external_assisted"}:
+            # Cache only deterministic or successfully generated safe responses.
+            if not include_debug and is_cacheable_chat_response(chat_resp) and settings.chat_response_cache_size > 0:
                 cache[normalized_query] = (chat_resp, headers)
                 cache.move_to_end(normalized_query)
                 if len(cache) > settings.chat_response_cache_size:
@@ -333,6 +333,14 @@ def _set_chat_headers(http_response: Response, headers: dict[str, str], *, cache
     http_response.headers["X-Cache-Hit"] = str(cache_hit).lower()
     for name, value in headers.items():
         http_response.headers[name] = value
+
+
+def is_cacheable_chat_response(response: ChatResponse) -> bool:
+    if response.answer_mode in {"identity", "conversation"}:
+        return True
+    if response.answer_mode in {"grounded", "assisted", "external_assisted"}:
+        return bool(response.llm.succeeded)
+    return False
 
 
 def _sanitize_response(response: LegalAnswerResponse, *, include_debug: bool | None = None) -> LegalAnswerResponse:

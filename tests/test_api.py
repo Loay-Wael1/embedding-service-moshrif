@@ -154,21 +154,46 @@ def test_chat_endpoint_debug_query_includes_router_without_env_flag(app_client):
     assert payload["router"]["intent"] == "conversation"
 
 def test_chat_endpoint_cache(app_client):
-    # First call
-    response1 = app_client.post("/chat", json={"query": "ما أفضل مطعم؟"})
-    assert response1.status_code == 200
-    
-    # Check cache state
-    cache = app_client.app.state.chat_cache
-    assert len(cache) > 0
-    
-    # Second call
-    response2 = app_client.post("/chat", json={"query": "ما أفضل مطعم؟"})
-    assert response2.status_code == 200
-    
-    # The cache hit should be identical to the first response
-    assert response1.json() == response2.json()
-    assert response2.headers["X-Cache-Hit"] == "true"
+    import app.settings as app_settings
+
+    original_size = app_settings.settings.chat_response_cache_size
+    object.__setattr__(app_settings.settings, "chat_response_cache_size", 128)
+    app_client.app.state.chat_cache.clear()
+
+    try:
+        response1 = app_client.post("/chat", json={"query": "اسمك إيه؟"})
+        assert response1.status_code == 200
+
+        cache = app_client.app.state.chat_cache
+        assert len(cache) == 1
+
+        response2 = app_client.post("/chat", json={"query": "اسمك إيه؟"})
+        assert response2.status_code == 200
+
+        assert response1.json() == response2.json()
+        assert response2.headers["X-Cache-Hit"] == "true"
+    finally:
+        object.__setattr__(app_settings.settings, "chat_response_cache_size", original_size)
+        app_client.app.state.chat_cache.clear()
+
+
+def test_chat_endpoint_non_legal_is_not_cached(app_client):
+    import app.settings as app_settings
+
+    original_size = app_settings.settings.chat_response_cache_size
+    object.__setattr__(app_settings.settings, "chat_response_cache_size", 128)
+    app_client.app.state.chat_cache.clear()
+
+    try:
+        response = app_client.post("/chat", json={"query": "ما أفضل مطعم؟"})
+        payload = response.json()
+        assert response.status_code == 200
+        assert payload["answer_mode"] == "non_legal"
+        assert len(app_client.app.state.chat_cache) == 0
+        assert response.headers["X-Cache-Hit"] == "false"
+    finally:
+        object.__setattr__(app_settings.settings, "chat_response_cache_size", original_size)
+        app_client.app.state.chat_cache.clear()
 
 
 def test_chat_endpoint_constitutional_legal_question_routes_to_retrieval(app_client):
