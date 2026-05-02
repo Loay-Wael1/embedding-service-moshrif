@@ -18,12 +18,6 @@ __pycache__/
 .ruff_cache/
 .ipynb_checkpoints/
 
-# Model files (downloaded separately)
-model/
-*.bin
-*.pt
-*.safetensors
-
 # HuggingFace caches
 .cache/
 .hf_cache/
