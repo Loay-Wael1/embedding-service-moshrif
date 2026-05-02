@@ -18,6 +18,12 @@ CHAT_EXTERNAL_ASSISTED_WARNING = (
     "هذا السؤال خارج مصادر التطبيق الداخلية المتاحة، لذلك لا أستطيع توثيق الإجابة منها."
 )
 
+PUBLIC_CHAT_LLM_FALLBACK_WARNING = (
+    "تعذر توليد الصياغة النهائية حاليًا، وتم عرض إجابة مستندة إلى المصادر الداخلية المتاحة."
+)
+
+PUBLIC_CHAT_LLM_UNAVAILABLE_WARNING = "تعذر توليد الصياغة النهائية حاليًا."
+
 CHAT_CONCISE_MAX_TOKENS: dict[str, int] = {
     "grounded": 1536,
     "assisted": 1536,
@@ -159,7 +165,7 @@ class LegalAnswerService:
             payload=llm_payload,
             internal_sources=internal_sources,
             external_sources=external_sources,
-            llm_error=llm.error,
+            llm_error=None if concise else llm.error,
             concise=concise,
         )
 
@@ -169,11 +175,16 @@ class LegalAnswerService:
         if answer_from_sources and llm_payload:
             answer_from_sources = clean_generated_text(answer_from_sources)
 
-        # --- Build user-facing warning (no technical text) ---
-        if llm.error:
+        # --- Build user-facing warning (no technical text for public /chat) ---
+        if concise and _llm_output_unusable(llm, llm_payload):
+            warning = _public_chat_llm_warning(decision.answer_mode, has_internal_sources=bool(internal_sources))
+        elif llm.error:
             warning = _merge_warning(warning, "تعذر استدعاء نموذج اللغة؛ تم إرجاع output آمن بدلًا من فشل الطلب.")
         if decision.answer_mode == "external_assisted":
-            warning = CHAT_EXTERNAL_ASSISTED_WARNING if concise else EXTERNAL_ASSISTED_WARNING
+            warning = _merge_warning(
+                CHAT_EXTERNAL_ASSISTED_WARNING if concise else EXTERNAL_ASSISTED_WARNING,
+                warning if concise and warning != CHAT_EXTERNAL_ASSISTED_WARNING else None,
+            )
 
         # Semantic classification.
         is_legal = decision.answer_mode != "identity"
@@ -259,14 +270,16 @@ class LegalAnswerService:
             payload=llm_payload,
             internal_sources=[],
             external_sources=[],
-            llm_error=llm.error,
+            llm_error=None if concise else llm.error,
             concise=concise,
         )
 
         if final_answer and llm_payload:
             final_answer = clean_generated_text(final_answer)
 
-        if llm.error:
+        if concise and _llm_output_unusable(llm, llm_payload):
+            warning = CHAT_EXTERNAL_ASSISTED_WARNING
+        elif llm.error:
             warning = _merge_warning(warning, "تعذر استدعاء نموذج اللغة؛ تم إرجاع output آمن بدلًا من فشل الطلب.")
         else:
             warning = CHAT_EXTERNAL_ASSISTED_WARNING if concise else EXTERNAL_ASSISTED_WARNING
@@ -868,6 +881,20 @@ def _llm_error_warning(error: str | None) -> str | None:
     if not error:
         return None
     return f"خطأ نموذج اللغة: {error}"
+
+
+def _llm_output_unusable(llm: LLMCallMetadata, payload: dict[str, Any] | None) -> bool:
+    if llm.error or llm.parse_error or llm.schema_error:
+        return True
+    return bool(llm.called and llm.succeeded and payload is None)
+
+
+def _public_chat_llm_warning(mode: str, *, has_internal_sources: bool) -> str:
+    if mode in {"grounded", "assisted"} and has_internal_sources:
+        return PUBLIC_CHAT_LLM_FALLBACK_WARNING
+    if mode == "external_assisted":
+        return CHAT_EXTERNAL_ASSISTED_WARNING
+    return PUBLIC_CHAT_LLM_UNAVAILABLE_WARNING
 
 
 def _merge_warning(left: str | None, right: str | None) -> str | None:

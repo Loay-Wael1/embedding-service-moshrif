@@ -214,7 +214,7 @@ def create_app(
             _set_chat_headers(http_response, headers, cache_hit=False)
             
             if include_debug:
-                return _sanitize_response(answer, include_debug=True)
+                return _sanitize_response(answer, include_debug=True, expose_llm_errors=False)
                 
             # Map to Compact ChatResponse
             compact_sources = [
@@ -276,7 +276,7 @@ def create_app(
                 filters=filters,
                 include_retrieval=request_body.include_retrieval,
             )
-            return _sanitize_response(response)
+            return _sanitize_response(response, expose_llm_errors=settings.debug_response_metadata)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         except RuntimeError as exc:
@@ -343,16 +343,42 @@ def is_cacheable_chat_response(response: ChatResponse) -> bool:
     return False
 
 
-def _sanitize_response(response: LegalAnswerResponse, *, include_debug: bool | None = None) -> LegalAnswerResponse:
+def _sanitize_response(
+    response: LegalAnswerResponse,
+    *,
+    include_debug: bool | None = None,
+    expose_llm_errors: bool = False,
+) -> LegalAnswerResponse:
     """Strip debug/diagnostic fields in production."""
     keep_debug = settings.debug_response_metadata if include_debug is None else include_debug
-    if not keep_debug:
+    if not keep_debug or not expose_llm_errors:
+        if _has_llm_diagnostic(response):
+            response.warning = _safe_llm_warning(response)
+        response.llm.error = None
         response.llm.parse_error = None
         response.llm.schema_error = None
         response.llm.raw_response_preview = None
         response.llm.raw_response_repr_preview = None
         response.llm.usage = None
     return response
+
+
+def _has_llm_diagnostic(response: LegalAnswerResponse) -> bool:
+    return bool(
+        response.llm.error
+        or response.llm.parse_error
+        or response.llm.schema_error
+        or response.llm.raw_response_preview
+        or response.llm.raw_response_repr_preview
+    )
+
+
+def _safe_llm_warning(response: LegalAnswerResponse) -> str:
+    if response.answer_mode in {"grounded", "assisted"} and response.sources:
+        return "تعذر توليد الصياغة النهائية حاليًا، وتم عرض إجابة مستندة إلى المصادر الداخلية المتاحة."
+    if response.answer_mode == "external_assisted":
+        return "هذا السؤال خارج مصادر التطبيق الداخلية المتاحة حاليًا، لذلك لا أستطيع توثيق الإجابة منها."
+    return "تعذر توليد الصياغة النهائية حاليًا."
 
 
 app = create_app()

@@ -1,6 +1,55 @@
 import json
 
 
+SAFE_PUBLIC_LLM_WARNING = "تعذر توليد الصياغة النهائية حاليًا، وتم عرض إجابة مستندة إلى المصادر الداخلية المتاحة."
+
+
+def _install_constitutional_answer_service(app_client, llm_client):
+    from app.answering import LegalAnswerService
+
+    class FakeRetriever:
+        def search(self, query: str, *, top_k=None, filters=None):
+            return {
+                "query": query,
+                "normalized_query": query,
+                "query_analysis": {"out_of_domain": False, "suggested_domain": "constitutional_law"},
+                "results": [
+                    {
+                        "id": "const-54",
+                        "rerank_score": 0.91,
+                        "score": 0.86,
+                        "law_name": "دستور جمهورية مصر العربية",
+                        "article_number": "54",
+                        "title": "الحرية الشخصية",
+                        "legal_domain": "constitutional_law",
+                        "source_url": "https://example.com/constitution/54",
+                        "summary": "تضمن المادة 54 ضمانات الحرية الشخصية.",
+                        "content": (
+                            "الحرية الشخصية حق طبيعي وهي مصونة لا تمس، ولا يجوز القبض أو التفتيش "
+                            "أو الحبس إلا بأمر قضائي مسبب، ويجب إبلاغ من تقيد حريته بأسباب ذلك."
+                        ),
+                        "rank_explanation": ["strong_summary_overlap"],
+                    },
+                    {
+                        "id": "const-92",
+                        "rerank_score": 0.84,
+                        "score": 0.79,
+                        "law_name": "دستور جمهورية مصر العربية",
+                        "article_number": "92",
+                        "title": "الحقوق والحريات",
+                        "legal_domain": "constitutional_law",
+                        "source_url": "https://example.com/constitution/92",
+                        "summary": "الحقوق والحريات اللصيقة بشخص المواطن لا تقبل تعطيلا ولا انتقاصا.",
+                        "content": "الحقوق والحريات اللصيقة بشخص المواطن لا تقبل تعطيلا ولا انتقاصا.",
+                        "rank_explanation": ["strong_title_overlap"],
+                    },
+                ],
+            }
+
+    app_client.app.state.chat_cache.clear()
+    app_client.app.state.legal_answer_service = LegalAnswerService(retriever=FakeRetriever(), llm_client=llm_client)
+
+
 def test_info_endpoint_returns_contract(app_client):
     response = app_client.get("/info")
     payload = response.json()
@@ -301,6 +350,114 @@ def test_chat_endpoint_constitutional_legal_question_routes_to_retrieval(app_cli
     prompt_text = "\n".join(message["content"] for message in captured["messages"])
     assert "نمط الإخراج العام المختصر لـ /chat" in prompt_text
     assert "لا تضع داخل final_answer قسمًا بعنوان \"المصادر\"" in prompt_text
+
+
+def test_public_chat_llm_429_uses_safe_warning(app_client):
+    from app.llm import LLMRequestError
+
+    class RateLimitedLLM:
+        model = "gemini-2.5-flash"
+        provider_name = "gemini"
+        web_search_enabled = False
+
+        def chat_completion(self, *, messages, temperature=0.0, max_tokens=None):
+            raise LLMRequestError(
+                "gemini returned HTTP 429: quota exceeded. See https://example.com/quota. GEMINI_API_KEY"
+            )
+
+    _install_constitutional_answer_service(app_client, RateLimitedLLM())
+
+    response = app_client.post("/chat", json={"query": "ما ضمانات الحرية الشخصية في الدستور المصري؟"})
+    payload = response.json()
+    diagnostic_text = " ".join(
+        value for value in (payload.get("warning"), payload.get("final_answer"), payload.get("llm", {}).get("error")) if value
+    )
+
+    assert response.status_code == 200
+    assert payload["answer_mode"] in {"grounded", "assisted"}
+    assert payload["llm"]["called"] is True
+    assert payload["llm"]["succeeded"] is False
+    assert payload["warning"] == SAFE_PUBLIC_LLM_WARNING
+    assert len(payload["sources"]) > 0
+    for leaked in ("429", "quota", "rate limit", "gemini returned", "GEMINI_API_KEY", "https://example.com/quota", "HTTP"):
+        assert leaked not in diagnostic_text
+
+
+def test_public_chat_invalid_json_uses_safe_warning(app_client):
+    from app.llm import LLMCompletion
+
+    class InvalidJsonLLM:
+        model = "gemini-2.5-flash"
+        provider_name = "gemini"
+        web_search_enabled = False
+
+        def chat_completion(self, *, messages, temperature=0.0, max_tokens=None):
+            return LLMCompletion(
+                content="```json\nnot valid json\n```",
+                model=self.model,
+                provider=self.provider_name,
+                usage={"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+                raw_response=None,
+            )
+
+    _install_constitutional_answer_service(app_client, InvalidJsonLLM())
+
+    response = app_client.post("/chat", json={"query": "ما ضمانات الحرية الشخصية في الدستور المصري؟"})
+    payload = response.json()
+    combined = json.dumps(payload, ensure_ascii=False)
+
+    assert response.status_code == 200
+    assert payload["answer_mode"] in {"grounded", "assisted"}
+    assert payload["llm"]["called"] is True
+    assert payload["llm"]["succeeded"] is True
+    assert payload["warning"] == SAFE_PUBLIC_LLM_WARNING
+    assert "valid json" not in combined.lower()
+    assert "parse_error" not in combined
+
+
+def test_legal_answer_llm_error_details_only_with_debug_metadata(app_client):
+    import app.settings as app_settings
+    from app.llm import LLMRequestError
+
+    class RateLimitedLLM:
+        model = "gemini-2.5-flash"
+        provider_name = "gemini"
+        web_search_enabled = False
+
+        def chat_completion(self, *, messages, temperature=0.0, max_tokens=None):
+            raise LLMRequestError("gemini returned HTTP 429: quota exceeded. GEMINI_API_KEY")
+
+    original_debug = app_settings.settings.debug_response_metadata
+
+    try:
+        object.__setattr__(app_settings.settings, "debug_response_metadata", False)
+        _install_constitutional_answer_service(app_client, RateLimitedLLM())
+        response = app_client.post(
+            "/legal-answer",
+            json={"query": "ما ضمانات الحرية الشخصية في الدستور المصري؟"},
+        )
+        payload = response.json()
+        combined = json.dumps(payload, ensure_ascii=False)
+
+        assert response.status_code == 200
+        assert payload["warning"] == SAFE_PUBLIC_LLM_WARNING
+        assert payload["llm"]["error"] is None
+        assert "429" not in combined
+        assert "GEMINI_API_KEY" not in combined
+
+        object.__setattr__(app_settings.settings, "debug_response_metadata", True)
+        _install_constitutional_answer_service(app_client, RateLimitedLLM())
+        debug_response = app_client.post(
+            "/legal-answer",
+            json={"query": "ما ضمانات الحرية الشخصية في الدستور المصري؟"},
+        )
+        debug_payload = debug_response.json()
+
+        assert debug_response.status_code == 200
+        assert "429" in debug_payload["llm"]["error"]
+        assert "quota exceeded" in debug_payload["llm"]["error"]
+    finally:
+        object.__setattr__(app_settings.settings, "debug_response_metadata", original_debug)
 
 
 def test_legal_answer_endpoint_keeps_full_prompt_and_budget(app_client):
