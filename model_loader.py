@@ -1,3 +1,0 @@
-from app.embeddings import LegacyEmbeddingModelAdapter, get_default_embedding_service
-
-embedding_model = LegacyEmbeddingModelAdapter(get_default_embedding_service())

@@ -1,52 +1,115 @@
 from __future__ import annotations
 
-from fastapi import FastAPI, HTTPException, Request
+import time
 
-from app.answering import LegalAnswerRequest, LegalAnswerResponse, LegalAnswerService
+from collections import OrderedDict
+
+from fastapi import FastAPI, HTTPException, Query, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.answering import ChatRequest, LegalAnswerRequest, LegalAnswerResponse, LegalAnswerService
+from app.answering.schemas import ChatResponse, CompactSourceCitation, CompactLLMMetadata
 from app.api.schemas import EmbedBatchRequest, EmbedRequest, EmbedResponse, EmbeddingResultResponse, ServiceInfoResponse
 from app.embeddings.service import EmbeddingService, get_default_embedding_service
 from app.models import RetrievalFilters
-from app.retrieval import LegalRetriever
+from app.settings import settings
 
 
 def create_app(
     embedding_service: EmbeddingService | None = None,
     answer_service: LegalAnswerService | None = None,
 ) -> FastAPI:
+    import logging
+    from contextlib import asynccontextmanager
+
+    logger = logging.getLogger("api.startup")
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        logger.info("API startup begin")
+        
+        if settings.preload_retriever:
+            logger.info("PRELOAD_RETRIEVER=true: Loading retriever and embedding models...")
+            embedding_svc = app.state.embedding_service
+            # Eagerly load model
+            if not embedding_svc.is_loaded:
+                embedding_svc._ensure_model()
+            
+            answer_svc = app.state.legal_answer_service
+            if answer_svc is None:
+                answer_svc = LegalAnswerService(config=getattr(embedding_svc, "settings", None))
+                app.state.legal_answer_service = answer_svc
+            # Force retriever instantiation
+            _ = answer_svc.retriever
+            logger.info("Retriever and models fully loaded.")
+        else:
+            logger.info("Retriever preload disabled. Models will load lazily on first legal query.")
+            
+        logger.info("API startup complete")
+        yield
+
     app = FastAPI(
         title="Egyptian Laws Embedding Service",
         version="2.0.0",
         description="Embedding API for Egyptian-law retrieval with legal-text normalization.",
+        lifespan=lifespan,
+    )
+
+    # CORS for frontend/mobile access.
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
 
     app.state.embedding_service = embedding_service or get_default_embedding_service()
     app.state.legal_answer_service = answer_service
+    app.state.chat_cache = OrderedDict()
+
+    @app.middleware("http")
+    async def add_process_time_header(request: Request, call_next):
+        start_time = time.perf_counter()
+        response = await call_next(request)
+        process_time = time.perf_counter() - start_time
+        response.headers["X-Process-Time-Ms"] = str(round(process_time * 1000, 2))
+        return response
 
     def _get_service(request: Request) -> EmbeddingService:
         return request.app.state.embedding_service
 
     def _get_answer_service(request: Request) -> LegalAnswerService:
+        """Lazy singleton — does NOT eagerly create LegalRetriever or load Qdrant."""
         service = request.app.state.legal_answer_service
         if service is None:
-            embedding = _get_service(request)
-            retriever = LegalRetriever(
-                embedding_service=embedding,
-                config=getattr(embedding, "settings", None),
-            )
-            service = LegalAnswerService(retriever=retriever, config=getattr(embedding, "settings", None))
+            # Retriever is lazy inside LegalAnswerService.retriever property.
+            service = LegalAnswerService(config=getattr(_get_service(request), "settings", None))
             request.app.state.legal_answer_service = service
         return service
 
     @app.get("/health")
     def health(request: Request) -> dict[str, object]:
-        service = _get_service(request)
         return {
             "status": "ok",
-            "model_loaded": service.is_loaded,
-            "supports_sparse": service.supports_sparse,
+            "service": "almostashar-legal-rag",
         }
 
-    @app.get("/info", response_model=ServiceInfoResponse)
+    @app.post("/warmup")
+    def warmup(request: Request) -> dict[str, object]:
+        """Loads models if they are not already loaded (e.g. after a cold start)."""
+        answer_svc = _get_answer_service(request)
+        embedding_svc = _get_service(request)
+        if not embedding_svc.is_loaded:
+            embedding_svc._ensure_model()
+        # Force retriever init
+        _ = answer_svc.retriever
+        return {
+            "status": "ok",
+            "retriever_loaded": True,
+        }
+
+    @app.get("/info", response_model=ServiceInfoResponse, include_in_schema=False)
     def info(request: Request) -> ServiceInfoResponse:
         service = _get_service(request)
         return ServiceInfoResponse(**service.get_info())
@@ -85,7 +148,7 @@ def create_app(
             ],
         }
 
-    @app.post("/embed", response_model=EmbedResponse)
+    @app.post("/embed", response_model=EmbedResponse, include_in_schema=False)
     def embed(request_body: EmbedRequest, request: Request) -> EmbedResponse:
         service = _get_service(request)
         if not request_body.text.strip():
@@ -100,7 +163,7 @@ def create_app(
         )
         return _to_embed_response(service, request_body.mode, request_body.normalize, results, warnings)
 
-    @app.post("/embed/batch", response_model=EmbedResponse)
+    @app.post("/embed/batch", response_model=EmbedResponse, include_in_schema=False)
     def embed_batch(request_body: EmbedBatchRequest, request: Request) -> EmbedResponse:
         service = _get_service(request)
         if not request_body.texts:
@@ -117,8 +180,84 @@ def create_app(
         )
         return _to_embed_response(service, request_body.mode, request_body.normalize, results, warnings)
 
-    @app.post("/legal-answer", response_model=LegalAnswerResponse)
-    @app.post("/ask-legal", response_model=LegalAnswerResponse)
+    @app.post("/chat", response_model=ChatResponse | LegalAnswerResponse)
+    def chat(
+        request_body: ChatRequest,
+        request: Request,
+        http_response: Response,
+        debug: bool = Query(False, include_in_schema=False)
+    ) -> ChatResponse | LegalAnswerResponse:
+        from app.preprocessing import normalize_legal_arabic
+        
+        normalized_query = normalize_legal_arabic(request_body.query)
+        cache: OrderedDict = request.app.state.chat_cache
+        include_debug = bool(debug or settings.debug_response_metadata)
+        
+        # Check cache if not in debug mode
+        if not include_debug and normalized_query in cache:
+            cache.move_to_end(normalized_query)
+            cached_value = cache[normalized_query]
+            if isinstance(cached_value, tuple):
+                cached_response, cached_headers = cached_value
+            else:
+                cached_response, cached_headers = cached_value, {}
+            _set_chat_headers(http_response, cached_headers, cache_hit=True)
+            return cached_response
+
+        try:
+            answer = _get_answer_service(request).answer(
+                request_body.query,
+                top_k=settings.chat_answer_top_k,
+                concise=settings.chat_concise_answers,
+            )
+            headers = _chat_header_values(answer)
+            _set_chat_headers(http_response, headers, cache_hit=False)
+            
+            if include_debug:
+                return _sanitize_response(answer, include_debug=True)
+                
+            # Map to Compact ChatResponse
+            compact_sources = [
+                CompactSourceCitation(
+                    law_name=s.law_name,
+                    article_number=s.article_number,
+                    title=s.title,
+                    source_url=s.source_url,
+                    legal_domain=s.legal_domain,
+                ) for s in answer.sources
+            ]
+            
+            chat_resp = ChatResponse(
+                answer_mode=answer.answer_mode,
+                final_answer=answer.final_answer,
+                warning=answer.warning,
+                is_legal_question=answer.is_legal_question,
+                is_supported_by_internal_sources=answer.is_supported_by_internal_sources,
+                is_out_of_internal_corpus=answer.is_out_of_internal_corpus,
+                sources=compact_sources,
+                llm=CompactLLMMetadata(
+                    called=answer.llm.called,
+                    succeeded=answer.llm.succeeded,
+                    provider=answer.llm.provider,
+                    model=answer.llm.model,
+                ),
+            )
+            
+            # Cache successful, safe responses
+            if not include_debug and chat_resp.answer_mode in {"identity", "conversation", "non_legal", "grounded", "external_assisted"}:
+                cache[normalized_query] = (chat_resp, headers)
+                cache.move_to_end(normalized_query)
+                if len(cache) > settings.chat_response_cache_size:
+                    cache.popitem(last=False)
+                    
+            return chat_resp
+            
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except RuntimeError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    @app.post("/legal-answer", response_model=LegalAnswerResponse, include_in_schema=False)
     def legal_answer(request_body: LegalAnswerRequest, request: Request) -> LegalAnswerResponse:
         if not request_body.query.strip():
             raise HTTPException(status_code=400, detail="query must not be empty")
@@ -131,12 +270,13 @@ def create_app(
             exclude_repealed=request_body.exclude_repealed,
         )
         try:
-            return _get_answer_service(request).answer(
+            response = _get_answer_service(request).answer(
                 request_body.query,
                 top_k=request_body.top_k,
                 filters=filters,
                 include_retrieval=request_body.include_retrieval,
             )
+            return _sanitize_response(response)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         except RuntimeError as exc:
@@ -175,6 +315,36 @@ def _to_embed_response(
             for result in results
         ],
     )
+
+
+def _chat_header_values(response: LegalAnswerResponse) -> dict[str, str]:
+    router = response.router
+    return {
+        "X-Answer-Mode": response.answer_mode,
+        "X-LLM-Called": str(bool(response.llm.called)).lower(),
+        "X-Sources-Count": str(len(response.sources)),
+        "X-Router-Intent": router.intent if router else "",
+        "X-Router-Confidence": str(router.confidence if router else ""),
+        "X-Router-Domain": router.suggested_domain if router and router.suggested_domain else "",
+    }
+
+
+def _set_chat_headers(http_response: Response, headers: dict[str, str], *, cache_hit: bool) -> None:
+    http_response.headers["X-Cache-Hit"] = str(cache_hit).lower()
+    for name, value in headers.items():
+        http_response.headers[name] = value
+
+
+def _sanitize_response(response: LegalAnswerResponse, *, include_debug: bool | None = None) -> LegalAnswerResponse:
+    """Strip debug/diagnostic fields in production."""
+    keep_debug = settings.debug_response_metadata if include_debug is None else include_debug
+    if not keep_debug:
+        response.llm.parse_error = None
+        response.llm.schema_error = None
+        response.llm.raw_response_preview = None
+        response.llm.raw_response_repr_preview = None
+        response.llm.usage = None
+    return response
 
 
 app = create_app()

@@ -1,19 +1,17 @@
-"""Professional intent router for pre-retrieval query classification.
+"""Hybrid intent router for pre-retrieval query classification.
 
-Runs *before* any access to LegalRetriever / Qdrant / embeddings.
+This module must stay light: it runs before Qdrant, embeddings, and the LLM.
+It uses deterministic Arabic normalization, local high-confidence intents, and
+lexical domain profiles for the current internal corpus.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
 
 from app.preprocessing import normalize_legal_arabic
 
-
-# ---------------------------------------------------------------------------
-# Public types
-# ---------------------------------------------------------------------------
 
 class IntentType(str, Enum):
     IDENTITY = "identity"
@@ -33,19 +31,37 @@ class IntentDecision:
     is_out_of_internal_corpus: bool
     suggested_domain: str | None
     reasons: list[str] = field(default_factory=list)
+    scores: dict[str, float] = field(default_factory=dict)
 
 
-# ---------------------------------------------------------------------------
-# Main entry point
-# ---------------------------------------------------------------------------
+PLACEHOLDER_VALUES = {"", "string", "null", "none", "undefined"}
+VALID_INTERNAL_DOMAINS = {"labor_law", "civil_law", "criminal_law", "constitutional_law"}
+
+
+def sanitize_optional_value(value: object) -> str | None:
+    """Normalize API placeholder strings to None."""
+    if value is None:
+        return None
+    text = str(value).strip()
+    if text.lower() in PLACEHOLDER_VALUES:
+        return None
+    return text or None
+
 
 def route_intent(query: str, explicit_domain: str | None = None) -> IntentDecision:
-    """Classify *query* into an intent before any retrieval."""
-    norm = normalize_legal_arabic(query)
-    raw = query.strip()
+    """Classify *query* before any retrieval is attempted.
 
-    # 1. Identity
-    if _is_identity(norm, raw):
+    ``explicit_domain`` is only a hint. It can break close domain ties, but it
+    never forces retrieval by itself.
+    """
+    norm = _normalize_for_routing(query)
+    explicit_domain = sanitize_optional_value(explicit_domain)
+    if explicit_domain == "all":
+        explicit_domain = None
+    if explicit_domain not in VALID_INTERNAL_DOMAINS:
+        explicit_domain = None
+
+    if _is_identity(norm, query):
         return IntentDecision(
             intent=IntentType.IDENTITY,
             confidence=0.98,
@@ -54,226 +70,481 @@ def route_intent(query: str, explicit_domain: str | None = None) -> IntentDecisi
             is_out_of_internal_corpus=False,
             suggested_domain=None,
             reasons=["identity_cue_matched"],
+            scores={"identity": 0.98},
         )
 
-    # 2. Conversation / small-talk  (must run before legal scoring)
-    conv = _conversation_score(norm, raw)
-    if conv >= 0.9:
+    conversation_score = _conversation_score(norm, query)
+    if conversation_score >= 0.90:
         return IntentDecision(
             intent=IntentType.CONVERSATION,
-            confidence=conv,
+            confidence=conversation_score,
             normalized_query=norm,
             is_legal_question=False,
             is_out_of_internal_corpus=False,
             suggested_domain=None,
             reasons=["conversation_cue_matched"],
+            scores={"conversation": conversation_score},
         )
 
-    # 3. External-assisted (personal-status / family-law outside internal corpus)
+    if _is_obvious_non_legal(norm):
+        return IntentDecision(
+            intent=IntentType.NON_LEGAL,
+            confidence=0.90,
+            normalized_query=norm,
+            is_legal_question=False,
+            is_out_of_internal_corpus=False,
+            suggested_domain=None,
+            reasons=["obvious_non_legal_topic_detected"],
+            scores={"non_legal": 0.90},
+        )
+
     if _is_external_assisted(norm):
         return IntentDecision(
             intent=IntentType.EXTERNAL_ASSISTED,
-            confidence=0.90,
+            confidence=0.92,
             normalized_query=norm,
             is_legal_question=True,
             is_out_of_internal_corpus=True,
             suggested_domain=None,
             reasons=["personal_status_family_law_detected"],
+            scores={"external_assisted": 0.92},
         )
 
-    # 4. Legal retrieval scoring
-    legal_score, domain = _legal_score(norm, explicit_domain)
-    if legal_score >= 0.35 or explicit_domain:
+    domain_scores = _score_domains(norm)
+    suggested_domain, best_domain_score = _pick_domain(domain_scores, explicit_domain)
+    legal_score, legal_reasons = _legal_likelihood(norm, best_domain_score)
+
+    if legal_score >= 0.45:
         return IntentDecision(
             intent=IntentType.LEGAL_RETRIEVAL,
-            confidence=min(0.6 + legal_score * 0.4, 0.99),
+            confidence=min(0.99, max(0.55, legal_score)),
             normalized_query=norm,
             is_legal_question=True,
             is_out_of_internal_corpus=False,
-            suggested_domain=domain or explicit_domain,
-            reasons=["legal_intent_score_high"],
+            suggested_domain=suggested_domain,
+            reasons=legal_reasons or ["legal_intent_score_medium_or_high"],
+            scores={"legal": round(legal_score, 4), **domain_scores},
         )
 
-    # 5. Non-legal
-    if _is_non_legal(norm):
+    if legal_score >= 0.30 and suggested_domain:
         return IntentDecision(
-            intent=IntentType.NON_LEGAL,
-            confidence=0.85,
+            intent=IntentType.LEGAL_RETRIEVAL,
+            confidence=min(0.85, legal_score + 0.20),
             normalized_query=norm,
-            is_legal_question=False,
+            is_legal_question=True,
             is_out_of_internal_corpus=False,
-            suggested_domain=None,
-            reasons=["non_legal_topic_detected"],
+            suggested_domain=suggested_domain,
+            reasons=[*legal_reasons, "cautious_medium_legal_score_with_domain_profile"],
+            scores={"legal": round(legal_score, 4), **domain_scores},
         )
 
-    # 6. Ambiguous — low confidence, let retrieval + sufficiency decide.
     return IntentDecision(
         intent=IntentType.AMBIGUOUS,
-        confidence=0.4,
+        confidence=max(0.20, min(0.55, legal_score)),
         normalized_query=norm,
         is_legal_question=False,
         is_out_of_internal_corpus=False,
-        suggested_domain=None,
-        reasons=["no_strong_signal"],
+        suggested_domain=suggested_domain if best_domain_score >= 2.5 else None,
+        reasons=["no_clear_legal_or_non_legal_signal"],
+        scores={"legal": round(legal_score, 4), **domain_scores},
     )
 
 
-# ---------------------------------------------------------------------------
-# Layer helpers
-# ---------------------------------------------------------------------------
+def _normalize_for_routing(query: str) -> str:
+    text = normalize_legal_arabic(query or "").lower()
+    text = re.sub(r"[؟?،؛:,.!()\[\]{}<>\"'`~@#$%^&*_+=|\\/]", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
+def _tokens(text: str) -> list[str]:
+    return re.findall(r"[\u0621-\u064A0-9]+", text)
+
+
+def _token_key(token: str) -> str:
+    if token.startswith("ال") and len(token) > 4:
+        return token[2:]
+    return token
+
+
+def _contains_phrase(text: str, phrase: str) -> bool:
+    return _normalize_for_routing(phrase) in text
+
+
+def _has_any_phrase(text: str, phrases: tuple[str, ...]) -> bool:
+    return any(_contains_phrase(text, phrase) for phrase in phrases)
+
 
 def _is_identity(norm: str, raw: str) -> bool:
-    lower = raw.lower()
-    cues_norm = _IDENTITY_CUES_NORM
-    if any(c in norm for c in cues_norm):
+    lower = raw.strip().lower()
+    if any(phrase in norm for phrase in _IDENTITY_DIRECT):
+        return True
+    has_identity_topic = any(term in norm for term in _IDENTITY_TOPICS)
+    has_identity_question = any(term in norm for term in _IDENTITY_QUESTION_TERMS)
+    if has_identity_topic and has_identity_question:
         return True
     english = ("who are you", "what is your name", "your name", "who developed you", "who built you")
-    return any(c in lower for c in english)
+    return any(cue in lower for cue in english)
 
 
 def _conversation_score(norm: str, raw: str) -> float:
-    """Return 0.0–1.0 conversation confidence."""
     lower = raw.strip().lower()
-    # Exact or near-exact greeting match
-    for cue in _GREETING_EXACT_NORM:
-        if norm == cue or norm.startswith(cue + " ") or cue.startswith(norm):
-            return 0.98
-    # Thanks
-    for cue in _THANKS_NORM:
-        if cue in norm:
-            return 0.95
-    # Capability prompts
-    for cue in _CAPABILITY_NORM:
-        if cue in norm:
-            return 0.92
-    # Short message with greeting substring but NOT legal content
-    if len(norm.split()) <= 4:
-        for cue in _GREETING_SUBSTR_NORM:
-            if cue in norm:
-                return 0.93
-    # English greetings
-    for cue in ("hello", "hi", "hey", "thanks", "thank you", "good morning"):
-        if cue in lower:
-            return 0.92
+    tokens = norm.split()
+    if not tokens:
+        return 0.0
+    if len(tokens) <= 5 and any(phrase == norm or norm.startswith(phrase + " ") for phrase in _CONVERSATION_EXACT):
+        return 0.98
+    if len(tokens) <= 5 and any(phrase in norm for phrase in _CONVERSATION_SHORT):
+        return 0.94
+    if len(tokens) <= 6 and any(phrase in norm for phrase in _CAPABILITY_SHORT):
+        return 0.92
+    if len(tokens) <= 4 and any(cue in lower for cue in ("hello", "hi", "hey", "thanks", "thank you")):
+        return 0.93
     return 0.0
 
 
+def _is_obvious_non_legal(norm: str) -> bool:
+    if not _has_any_phrase(norm, _NON_LEGAL_TERMS):
+        return False
+    # If the user clearly asks about a legal violation involving a non-legal
+    # noun, let legal scoring handle it.
+    legal_hits = _legal_term_hits(norm)
+    return legal_hits == 0 and not _has_any_phrase(norm, _STRONG_SOURCE_PHRASES)
+
+
 def _is_external_assisted(norm: str) -> bool:
-    return any(cue in norm for cue in _PERSONAL_STATUS_NORM)
+    return _has_any_phrase(norm, _PERSONAL_STATUS_TERMS)
 
 
-def _legal_score(norm: str, explicit_domain: str | None) -> tuple[float, str | None]:
-    """Return (score 0–1, detected domain or None)."""
+def _legal_likelihood(norm: str, best_domain_score: float) -> tuple[float, list[str]]:
     score = 0.0
-    # Legal question phrases
-    for phrase in _LEGAL_PHRASES_NORM:
-        if phrase in norm:
-            score += 0.35
-            break
-    # Domain terms
-    best_domain: str | None = None
-    best_domain_hits = 0
-    for domain, terms in _DOMAIN_TERMS.items():
-        hits = sum(1 for t in terms if t in norm)
-        if hits > best_domain_hits:
-            best_domain_hits = hits
-            best_domain = domain
-    if best_domain_hits >= 2:
-        score += 0.4
-    elif best_domain_hits == 1:
-        score += 0.25
-    # Generic legal cues
-    generic_hits = sum(1 for c in _GENERIC_LEGAL_NORM if c in norm)
-    if generic_hits >= 2:
-        score += 0.3
-    elif generic_hits == 1:
-        score += 0.15
-    return min(score, 1.0), best_domain
+    reasons: list[str] = []
+
+    if _has_any_phrase(norm, _STRONG_SOURCE_PHRASES):
+        score += 0.58
+        reasons.append("strong_legal_source_phrase")
+
+    term_hits = _legal_term_hits(norm)
+    if term_hits:
+        score += min(0.42, term_hits * 0.08)
+        reasons.append("legal_concept_terms")
+
+    question_score = _question_pattern_score(norm)
+    if question_score:
+        score += question_score
+        reasons.append("legal_question_pattern")
+
+    if best_domain_score >= 4:
+        score += 0.28
+        reasons.append("strong_domain_profile_overlap")
+    elif best_domain_score >= 2:
+        score += 0.18
+        reasons.append("domain_profile_overlap")
+    elif best_domain_score >= 1:
+        score += 0.08
+
+    return min(score, 1.0), reasons
 
 
-def _is_non_legal(norm: str) -> bool:
-    return any(cue in norm for cue in _NON_LEGAL_NORM)
+def _legal_term_hits(norm: str) -> int:
+    token_keys = {_token_key(token) for token in _tokens(norm)}
+    hits = 0
+    for term in _LEGAL_CONCEPT_TERMS:
+        term_norm = _normalize_for_routing(term)
+        if " " in term_norm:
+            hits += int(term_norm in norm)
+        else:
+            hits += int(_token_key(term_norm) in token_keys)
+    return hits
 
 
-# ---------------------------------------------------------------------------
-# Cue lists (normalised once at import time)
-# ---------------------------------------------------------------------------
-_n = normalize_legal_arabic
+def _question_pattern_score(norm: str) -> float:
+    if _has_any_phrase(norm, _LEGAL_QUESTION_PATTERNS):
+        return 0.24
+    first = norm.split()[0] if norm.split() else ""
+    if first in {"ما", "ماذا", "متى", "كيف", "هل"}:
+        return 0.12
+    return 0.0
 
-_IDENTITY_CUES_NORM = tuple(_n(c) for c in (
-    "اسمك", "اسمك ايه", "اسمك إيه", "انت مين", "أنت مين",
-    "مين انت", "مين أنت", "من انت", "من أنت",
-    "مين طورك", "من طورك", "مين صممك", "من صممك",
-    "مين عملك", "من عملك",
-    "انت تابع لتطبيق", "أنت تابع لتطبيق",
+
+def _score_domains(norm: str) -> dict[str, float]:
+    query_tokens = {_token_key(token) for token in _tokens(norm)}
+    scores: dict[str, float] = {}
+    for domain, profile in _DOMAIN_PROFILES.items():
+        profile_tokens = {_token_key(token) for token in _tokens(_normalize_for_routing(profile))}
+        score = float(len(query_tokens & profile_tokens))
+        for phrase in _DOMAIN_PHRASE_BOOSTS.get(domain, ()):
+            if _contains_phrase(norm, phrase):
+                score += 2.5
+        scores[domain] = round(score, 4)
+    return scores
+
+
+def _pick_domain(domain_scores: dict[str, float], explicit_domain: str | None) -> tuple[str | None, float]:
+    ordered = sorted(domain_scores.items(), key=lambda item: item[1], reverse=True)
+    if not ordered:
+        return explicit_domain, 0.0
+    best_domain, best_score = ordered[0]
+    second_score = ordered[1][1] if len(ordered) > 1 else 0.0
+    if explicit_domain and domain_scores.get(explicit_domain, 0.0) >= max(1.0, best_score - 1.0):
+        return explicit_domain, domain_scores[explicit_domain]
+    if best_score >= 1.5 and best_score > second_score:
+        return best_domain, best_score
+    if best_score >= 4.0:
+        return best_domain, best_score
+    return None, best_score
+
+
+def _n(value: str) -> str:
+    return _normalize_for_routing(value)
+
+
+_IDENTITY_DIRECT = tuple(_n(value) for value in (
+    "اسمك ايه",
+    "اسمك إيه",
+    "ما اسمك",
+    "من أنت",
+    "من انت",
+    "انت مين",
+    "أنت مين",
+    "مين انت",
+    "مين أنت",
+    "من المستشار",
+    "ما هو المستشار",
+    "مين طورك",
+    "من طورك",
+    "مين صممك",
+    "من صممك",
+    "مين عملك",
+    "من عملك",
+    "مين صمم التطبيق",
+    "مين طور التطبيق",
+    "انت تابع لتطبيق ايه",
+    "أنت تابع لتطبيق إيه",
 ))
 
-_GREETING_EXACT_NORM = tuple(_n(c) for c in (
-    "السلام عليكم", "وعليكم السلام", "سلام عليكم",
-    "اهلا", "أهلا", "اهلا بك", "أهلا بك",
-    "مرحبا", "مرحبًا",
-    "صباح الخير", "مساء الخير", "مساء النور",
-    "هاي", "هالو",
-    "ازيك", "إزيك", "ازاي", "ازايك", "إزايك",
-    "عامل ايه", "عامل إيه",
+_IDENTITY_TOPICS = tuple(_n(value) for value in (
+    "اسمك",
+    "هويتك",
+    "المستشار",
+    "التطبيق",
+    "طورك",
+    "صممك",
+    "عملك",
+    "طور",
+    "صمم",
 ))
 
-_GREETING_SUBSTR_NORM = tuple(_n(c) for c in (
-    "سلام", "اهلا", "أهلا", "مرحبا", "صباح", "مساء",
-    "ازيك", "إزيك", "هاي",
+_IDENTITY_QUESTION_TERMS = tuple(_n(value) for value in (
+    "مين",
+    "من",
+    "ما",
+    "ايه",
+    "إيه",
+    "انت",
+    "أنت",
+    "هو",
 ))
 
-_THANKS_NORM = tuple(_n(c) for c in (
-    "شكرا", "شكراً", "متشكر", "تسلم", "تمام", "جزاك الله",
+_CONVERSATION_EXACT = tuple(_n(value) for value in (
+    "السلام عليكم",
+    "وعليكم السلام",
+    "سلام عليكم",
+    "اهلا",
+    "أهلا",
+    "مرحبا",
+    "صباح الخير",
+    "مساء الخير",
+    "مساء النور",
+    "شكرا",
+    "متشكر",
+    "تسلم",
+    "تمام",
+    "ازيك",
+    "إزيك",
+    "عامل ايه",
+    "عامل إيه",
 ))
 
-_CAPABILITY_NORM = tuple(_n(c) for c in (
-    "تقدر تساعدني", "ممكن تساعدني", "ماذا يمكنك",
-    "ايه اللي تقدر تعمله", "تعرف تعمل ايه",
+_CONVERSATION_SHORT = tuple(_n(value) for value in (
+    "سلام",
+    "اهلا",
+    "أهلا",
+    "مرحبا",
+    "صباح",
+    "مساء",
+    "شكرا",
+    "متشكر",
+    "تسلم",
+    "تمام",
+    "ازيك",
+    "إزيك",
+    "عامل ايه",
 ))
 
-_PERSONAL_STATUS_NORM = tuple(_n(c) for c in (
-    "حضانة", "الحضانة", "نفقة", "النفقة",
-    "طلاق", "الطلاق", "خلع", "الخلع",
-    "ميراث", "الميراث", "مؤخر الصداق",
-    "الرؤية", "رؤية الصغير", "الولاية التعليمية",
-    "قائمة المنقولات", "تمكين الزوجة", "مسكن الزوجية",
-    "الأحوال الشخصية", "احوال شخصية",
+_CAPABILITY_SHORT = tuple(_n(value) for value in (
+    "ممكن تساعدني",
+    "تقدر تساعدني",
+    "ماذا يمكنك",
+    "تعرف تعمل ايه",
+    "ايه اللي تقدر تعمله",
 ))
 
-_LEGAL_PHRASES_NORM = tuple(_n(c) for c in (
-    "ما حكم", "ما هي احكام", "ما هي أحكام", "هل يجوز",
-    "ما العقوبة", "ما عقوبة", "ما حقوق", "ما التزامات",
-    "متى يسقط", "شروط", "اجراءات", "إجراءات",
+_NON_LEGAL_TERMS = tuple(_n(value) for value in (
+    "مطعم",
+    "أكل",
+    "اكل",
+    "الطقس",
+    "رياضة",
+    "نكتة",
+    "برمجة",
+    "ترجمة",
+    "علاج طبي",
+    "دواء",
+    "سفر",
+    "فيلم",
+    "أغنية",
+    "اغنية",
+    "كود بايثون",
+    "اكتب كود",
 ))
 
-_GENERIC_LEGAL_NORM = tuple(_n(c) for c in (
-    "دعوى", "عقد", "مادة", "المادة", "قانون", "القانون",
-    "محكمة", "حكم", "حقوق", "التزامات",
+_PERSONAL_STATUS_TERMS = tuple(_n(value) for value in (
+    "حضانة",
+    "الحضانة",
+    "نفقة",
+    "النفقة",
+    "طلاق",
+    "الطلاق",
+    "خلع",
+    "الخلع",
+    "الرؤية",
+    "رؤية الصغير",
+    "ميراث",
+    "الميراث",
+    "مؤخر الصداق",
+    "قائمة المنقولات",
+    "مسكن الزوجية",
+    "تمكين الزوجة",
+    "الأحوال الشخصية",
+    "احوال شخصية",
 ))
 
-_DOMAIN_TERMS: dict[str, tuple[str, ...]] = {
-    "labor_law": tuple(_n(c) for c in (
-        "عقد العمل", "العامل", "صاحب العمل", "الاجر", "الأجر",
-        "الفصل", "اجازة", "إجازة", "تأمين بيئة العمل",
-        "العمل الفردي", "العمل الجماعي", "قانون العمل",
-    )),
-    "civil_law": tuple(_n(c) for c in (
-        "الالتزام", "البيع", "الايجار", "الإيجار",
-        "التعويض", "المسؤولية", "الملكية", "الحيازة",
-    )),
-    "criminal_law": tuple(_n(c) for c in (
-        "جريمة", "عقوبة", "سرقة", "نصب", "خيانة امانة", "خيانة أمانة",
-        "رشوة", "تزوير", "ضرب", "قتل",
-    )),
-    "constitutional_law": tuple(_n(c) for c in (
-        "الدستور", "الحريات", "المساواة",
-        "حرية الاعتقاد", "المواطنة",
-    )),
+_LEGAL_CONCEPT_TERMS = tuple(_n(value) for value in (
+    "قانون",
+    "الدستور",
+    "دستوري",
+    "دستورية",
+    "لائحة",
+    "مادة",
+    "مواد",
+    "محكمة",
+    "دعوى",
+    "حكم",
+    "أحكام",
+    "احكام",
+    "عقوبة",
+    "جريمة",
+    "عقد",
+    "التزام",
+    "حق",
+    "حقوق",
+    "حرية",
+    "حريات",
+    "ضمانات",
+    "تعويض",
+    "مسؤولية",
+    "ملكية",
+    "حيازة",
+    "عامل",
+    "صاحب العمل",
+    "أجر",
+    "اجر",
+    "فصل",
+    "متهم",
+    "مجني عليه",
+    "جناية",
+    "جنحة",
+    "مخالفة",
+))
+
+_LEGAL_QUESTION_PATTERNS = tuple(_n(value) for value in (
+    "ما حكم",
+    "ما هي أحكام",
+    "ما أحكام",
+    "ما ضمانات",
+    "ما حقوق",
+    "ما واجبات",
+    "ما شروط",
+    "ما آثار",
+    "ما عقوبة",
+    "متى يجوز",
+    "هل يجوز",
+    "ماذا ينص",
+    "ما المقصود",
+    "ما الفرق بين",
+))
+
+_STRONG_SOURCE_PHRASES = tuple(_n(value) for value in (
+    "الدستور المصري",
+    "دستور جمهورية مصر العربية",
+    "قانون العمل المصري",
+    "القانون المدني المصري",
+    "القانون المدني",
+    "قانون العقوبات المصري",
+    "قانون العقوبات",
+))
+
+_DOMAIN_PROFILES = {
+    "constitutional_law": (
+        "الدستور المصري الدستور الحقوق الحريات الحرية الشخصية حرية الاعتقاد حرية الرأي "
+        "حرية التعبير المساواة عدم التمييز تكافؤ الفرص كرامة الإنسان المواطنة الحق في "
+        "التعليم الحق في الصحة الحق في العمل الحق في التقاضي المحاكمة العادلة العدالة "
+        "الاجتماعية واجبات الدولة"
+    ),
+    "labor_law": (
+        "قانون العمل العمل العامل صاحب العمل عقد العمل عقد العمل الفردي الأجر الإجازة "
+        "الإجازات الفصل إنهاء العقد علاقة العمل السلامة والصحة المهنية بيئة العمل "
+        "إصابة العمل تشغيل العامل حقوق العامل واجبات العامل"
+    ),
+    "civil_law": (
+        "القانون المدني العقد الالتزام الالتزامات البيع الإيجار التعويض المسؤولية "
+        "التقصيرية المسؤولية المدنية الملكية الحيازة الفسخ البطلان الشرط الجزائي "
+        "الدائن المدين الضرر الإخلال بالعقد"
+    ),
+    "criminal_law": (
+        "قانون العقوبات الجريمة العقوبة العقوبات السرقة النصب الرشوة التزوير القتل "
+        "الضرب خيانة الأمانة الشروع العود الجناية الجنحة المخالفة المتهم المجني عليه "
+        "السجن الحبس الغرامة"
+    ),
 }
 
-_NON_LEGAL_NORM = tuple(_n(c) for c in (
-    "مطعم", "طبخ", "وصفة", "الطقس", "نكتة", "برمجة",
-    "ترجمة", "اخبار رياضة", "أخبار رياضة", "علاج طبي",
-    "كورة", "ماتش", "فيلم", "اغنية", "أغنية",
-))
+_DOMAIN_PHRASE_BOOSTS = {
+    "constitutional_law": tuple(_n(value) for value in (
+        "الدستور المصري",
+        "الحقوق والحريات",
+        "عدم التمييز",
+        "حرية الاعتقاد",
+        "حرية الرأي",
+        "الحرية الشخصية",
+        "المحاكمة العادلة",
+        "الحق في التقاضي",
+    )),
+    "labor_law": tuple(_n(value) for value in (
+        "عقد العمل",
+        "صاحب العمل",
+        "قانون العمل",
+        "السلامة والصحة المهنية",
+    )),
+    "civil_law": tuple(_n(value) for value in (
+        "القانون المدني",
+        "المسؤولية التقصيرية",
+        "الشرط الجزائي",
+        "عقد البيع",
+    )),
+    "criminal_law": tuple(_n(value) for value in (
+        "قانون العقوبات",
+        "خيانة الأمانة",
+        "الجناية والجنحة والمخالفة",
+    )),
+}

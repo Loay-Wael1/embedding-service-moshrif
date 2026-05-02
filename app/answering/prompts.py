@@ -99,6 +99,53 @@ answer_mode = insufficient
 }
 
 
+PUBLIC_CHAT_CONCISE_POLICY = """
+نمط الإخراج العام المختصر لـ /chat:
+- هذه التعليمات تخص final_answer العام فقط، وتتغلب على أي تعليمات سابقة تطلب قسمًا بعنوان "المصادر".
+- لا تضع داخل final_answer قسمًا بعنوان "المصادر" أو "Sources"؛ مصفوفة sources يعرضها التطبيق منفصلة.
+- لا تكتب S1 أو S2 أو source_id أو أرقام مصادر داخل final_answer.
+- لا تكرر snippets أو summaries من المصادر، ولا تقتبس نصًا قانونيًا طويلًا.
+- لا تناقش كل مصدر مسترجع؛ ركز على المصدر أو المواد الأكثر صلة بالسؤال.
+
+لبنود grounded و assisted، يجب أن تكون final_answer بهذا الشكل:
+[مقدمة قصيرة من سطر أو سطرين توضح الفكرة العامة بلغة طبيعية]
+
+أهم الأحكام:
+- نقطة قانونية قصيرة وواضحة.
+- نقطة قانونية قصيرة وواضحة.
+- نقطة قانونية قصيرة وواضحة.
+
+السند القانوني:
+استندت الإجابة إلى المادة/المواد (...) من (...).
+
+قواعد الأسلوب لـ grounded و assisted:
+- استخدم عنوانًا أدق عند الحاجة مثل "أهم الضمانات:" أو "أبرز الحقوق والضمانات:" بدل "أهم الأحكام:".
+- اجعل عدد النقاط من 3 إلى 5 غالبًا.
+- كل نقطة يجب أن تكون قصيرة ومباشرة ومريحة للقراءة على الموبايل.
+- العربية يجب أن تكون طبيعية ومطمئنة ومهنية، لا جافة ولا مطولة.
+- في assisted، إن أضفت شرحًا مساعدًا فاجعله مختصرًا ومفصولًا بوضوح عن السند الداخلي.
+- استخدم "السند القانوني:" فقط، ولا تستخدم "المصادر:" داخل final_answer.
+- إذا كان مصدر واحد هو الأساس الواضح، ركز عليه فقط في السند القانوني.
+
+لبند external_assisted، يجب أن تكون final_answer بهذا الشكل:
+[تنبيه قصير أن الموضوع خارج المصادر الداخلية]
+
+شرح عام:
+- نقطة مختصرة.
+- نقطة مختصرة.
+- نقطة مختصرة.
+
+ملاحظة:
+هذه إجابة عامة غير موثقة من مصادر التطبيق الداخلية، ويُفضّل مراجعة محامٍ مختص أو النصوص الرسمية.
+
+قواعد external_assisted:
+- لا تدّعِ توثيقًا داخليًا.
+- لا تذكر أرقام مواد إلا إذا كانت هناك مصادر داخلية أو خارجية موثقة ومقدمة فعليًا.
+- اجعل التحذير واضحًا وقصيرًا وغير مخيف.
+- اجعل answer_from_sources = null.
+""".strip()
+
+
 def build_answer_messages(
     *,
     query: str,
@@ -109,6 +156,7 @@ def build_answer_messages(
     internal_sources: list[dict[str, Any]],
     external_sources: list[dict[str, Any]],
     external_sources_verified_by_system: bool,
+    concise: bool = False,
 ) -> list[dict[str, str]]:
     user_payload = {
         "query": query,
@@ -120,13 +168,14 @@ def build_answer_messages(
         "external_sources": external_sources,
         "external_sources_verified_by_system": external_sources_verified_by_system,
     }
+    concise_policy = f"\n\n{PUBLIC_CHAT_CONCISE_POLICY}" if concise else ""
     user_message = (
         "Return ONLY a valid JSON object with keys: answer_from_sources, final_answer, warning.\n"
         "Do not use markdown fences. Do not write ```json.\n"
         "Do not include any text before or after the JSON object.\n"
         "Escape all newlines inside strings as \\n — no literal line breaks inside JSON string values.\n"
         "Use double quotes for all keys and values.\n\n"
-        f"{MODE_POLICIES[answer_mode]}\n\n"
+        f"{MODE_POLICIES[answer_mode]}{concise_policy}\n\n"
         "استخدم البيانات التالية وفق سياسة mode فقط:\n"
         f"{json.dumps(user_payload, ensure_ascii=False, indent=2)}"
     )

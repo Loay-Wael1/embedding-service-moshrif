@@ -103,5 +103,14 @@ class Settings:
     legal_answer_grounded_min_overlap: float = float(os.getenv("LEGAL_ANSWER_GROUNDED_MIN_OVERLAP", "0.16"))
     legal_answer_assisted_min_overlap: float = float(os.getenv("LEGAL_ANSWER_ASSISTED_MIN_OVERLAP", "0.07"))
 
+    # Production settings
+    app_env: str = _env_str("APP_ENV", "production")
+    log_level: str = _env_str("LOG_LEVEL", "info")
+    debug_response_metadata: bool = _env_bool("DEBUG_RESPONSE_METADATA", False)
+    preload_retriever: bool = _env_bool("PRELOAD_RETRIEVER", False)
+    chat_response_cache_size: int = int(os.getenv("CHAT_RESPONSE_CACHE_SIZE", "128"))
+    chat_answer_top_k: int = int(os.getenv("CHAT_ANSWER_TOP_K", "3"))
+    chat_concise_answers: bool = _env_bool("CHAT_CONCISE_ANSWERS", True)
+
 
 settings = Settings()

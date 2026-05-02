@@ -2,11 +2,23 @@
 venv/
 env/
 
+# Environment
+.env
+.env.*
+!.env.example
+
 # Python cache
 __pycache__/
 *.pyc
+*.pyo
 
-# Model folder (ignore BGE-M3 completely)
+# Test/lint caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Model files (downloaded separately)
 model/
 *.bin
 *.pt
@@ -15,7 +27,6 @@ model/
 # HuggingFace caches
 .cache/
 .hf_cache/
-.env
 
 # OS junk
 Thumbs.db
@@ -23,8 +34,12 @@ Thumbs.db
 
 # Qdrant databases
 qdrant_db/
-hierarchical_retrieval/qdrant_db_hierarchical/
-qdrant_db_legal/
+hierarchical_retrieval/
 
+# Logs
+*.log
+logs/
 
-
+# Temp
+tmp/
+temp/

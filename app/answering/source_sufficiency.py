@@ -73,6 +73,7 @@ def assess_source_sufficiency(
     law_clear = law is not None
     conflict_detected = _has_clear_conflict(query_analysis, evaluated)
     exact_article_signal = _has_exact_article_signal(query, evaluated[:2])
+    explicit_legal_source_signal = _has_explicit_legal_source_signal(query)
 
     reasons: list[str] = []
     is_out_of_internal_corpus = _is_egyptian_law_question_outside_internal_corpus(
@@ -102,11 +103,10 @@ def assess_source_sufficiency(
 
     # Overlap / intent guard: high vector score alone is NOT enough to ground.
     has_overlap_signal = (
-        top_overlap >= active.legal_answer_grounded_min_overlap
-        or avg_overlap >= active.legal_answer_grounded_min_overlap
+        top_overlap > 0
+        or avg_overlap > 0
         or exact_article_signal
-        or bool(explicit_domain)
-        or has_legal_intent
+        or explicit_legal_source_signal
     )
 
     can_ground = (
@@ -153,6 +153,8 @@ def assess_source_sufficiency(
         "law_clear": law_clear,
         "conflict_detected": conflict_detected,
         "exact_article_signal": exact_article_signal,
+        "explicit_legal_source_signal": explicit_legal_source_signal,
+        "has_legal_intent": has_legal_intent,
         "retrieval_out_of_scope": retrieval_out_of_scope,
         "is_out_of_internal_corpus": is_out_of_internal_corpus,
         "thresholds": {
@@ -326,6 +328,21 @@ def _has_exact_article_signal(query: str, sources: list[EvaluatedSource]) -> boo
     return False
 
 
+def _has_explicit_legal_source_signal(query: str) -> bool:
+    query_norm = normalize_legal_arabic(query)
+    source_phrases = (
+        "الدستور المصري",
+        "دستور جمهورية مصر العربية",
+        "قانون العمل المصري",
+        "قانون العمل",
+        "القانون المدني المصري",
+        "القانون المدني",
+        "قانون العقوبات المصري",
+        "قانون العقوبات",
+    )
+    return any(normalize_legal_arabic(phrase) in query_norm for phrase in source_phrases)
+
+
 def _has_strong_rank_signal(item: dict[str, Any]) -> bool:
     reasons = item.get("rank_explanation") or []
     return any(
@@ -461,4 +478,3 @@ def _is_confident_out_of_internal_corpus(query: str) -> bool:
     """
     query_norm = normalize_legal_arabic(query)
     return _contains_any(query_norm, CONFIDENT_PERSONAL_STATUS_CUES)
-

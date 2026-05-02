@@ -1,16 +1,29 @@
 from __future__ import annotations
 
+import time
 from typing import Any
 
-from app.answering.intent_router import IntentType, route_intent
+from app.answering.intent_router import IntentDecision, IntentType, route_intent, sanitize_optional_value
 from app.answering.prompts import build_answer_messages
-from app.answering.schemas import LegalAnswerResponse, LLMCallMetadata, RetrievalSummary, SourceCitation
+from app.answering.schemas import LegalAnswerResponse, LLMCallMetadata, RetrievalSummary, RouterMetadata, SourceCitation, TimingMetadata
 from app.answering.source_sufficiency import EvaluatedSource, assess_source_sufficiency
 from app.llm import LLMError, MODE_MAX_TOKENS, OpenAICompatibleLLMClient, clean_generated_text, parse_llm_json, validate_answer_payload
 from app.models import RetrievalFilters
 from app.preprocessing import normalize_legal_arabic
 from app.retrieval import LegalRetriever
 from app.settings import Settings, settings
+
+
+CHAT_EXTERNAL_ASSISTED_WARNING = (
+    "هذا السؤال خارج مصادر التطبيق الداخلية المتاحة، لذلك لا أستطيع توثيق الإجابة منها."
+)
+
+CHAT_CONCISE_MAX_TOKENS: dict[str, int] = {
+    "grounded": 1536,
+    "assisted": 1536,
+    "external_assisted": 1536,
+    "insufficient": 1024,
+}
 
 
 IDENTITY_ANSWER = (
@@ -64,29 +77,46 @@ class LegalAnswerService:
         top_k: int | None = None,
         filters: RetrievalFilters | None = None,
         include_retrieval: bool = False,
+        concise: bool = False,
     ) -> LegalAnswerResponse:
         if not query.strip():
             raise ValueError("query must not be empty")
 
+        t_start = time.perf_counter()
+
         # --- Intent Router (runs before any retrieval) ---
-        domain_hint = getattr(filters, "legal_domain", None) if filters else None
+        domain_hint = sanitize_optional_value(getattr(filters, "legal_domain", None)) if filters else None
+        if domain_hint == "all":
+            domain_hint = None
         intent = route_intent(query, explicit_domain=domain_hint)
+        t_intent = time.perf_counter()
 
         if intent.intent == IntentType.IDENTITY:
-            return _identity_response(query)
+            return _identity_response(query, intent, t_start, t_intent)
 
         if intent.intent == IntentType.CONVERSATION:
-            return _conversation_response(query, intent)
+            return _conversation_response(query, intent, t_start, t_intent)
 
         if intent.intent == IntentType.NON_LEGAL:
-            return _non_legal_response(query, intent)
+            return _non_legal_response(query, intent, t_start, t_intent)
 
         if intent.intent == IntentType.EXTERNAL_ASSISTED:
-            return self._external_assisted_shortcircuit(query, include_retrieval=include_retrieval)
+            return self._external_assisted_shortcircuit(
+                query,
+                intent=intent,
+                include_retrieval=include_retrieval,
+                concise=concise,
+                t_start=t_start,
+                t_intent=t_intent,
+            )
 
-        # --- Legal retrieval path (or ambiguous fallback) ---
+        if intent.intent == IntentType.AMBIGUOUS:
+            return _ambiguous_response(query, intent, t_start, t_intent)
+
+        # --- Legal retrieval path ---
+        retrieval_filters = _effective_retrieval_filters(filters, suggested_domain=intent.suggested_domain)
         top_k_used = top_k or self.settings.legal_answer_top_k
-        retrieval_result = self.retriever.search(query, top_k=top_k_used, filters=filters)
+        retrieval_result = self.retriever.search(query, top_k=top_k_used, filters=retrieval_filters)
         decision = assess_source_sufficiency(
             retrieval_result,
             config=self.settings,
@@ -94,6 +124,7 @@ class LegalAnswerService:
             explicit_domain=domain_hint,
             has_legal_intent=intent.is_legal_question,
         )
+        t_retrieval = time.perf_counter()
 
         internal_sources = [source.citation for source in decision.sources if decision.answer_mode in {"grounded", "assisted"}]
         internal_source_blocks = self._build_source_blocks(decision.sources if decision.answer_mode in {"grounded", "assisted"} else [])
@@ -101,13 +132,14 @@ class LegalAnswerService:
         external_sources_verified_by_system = False
 
         # Mode-specific max_completion_tokens.
-        mode_max_tokens = MODE_MAX_TOKENS.get(decision.answer_mode, self.settings.llm_max_tokens)
+        mode_max_tokens = _mode_max_tokens(decision.answer_mode, concise=concise, config=self.settings)
 
         llm, llm_payload, llm_parse_warning = self._call_llm(
             query=query,
             decision=decision,
             internal_source_blocks=internal_source_blocks,
             max_tokens=mode_max_tokens,
+            concise=concise,
         )
 
         if llm.succeeded and llm.raw_response_preview is None:
@@ -128,6 +160,7 @@ class LegalAnswerService:
             internal_sources=internal_sources,
             external_sources=external_sources,
             llm_error=llm.error,
+            concise=concise,
         )
 
         # Apply light cleanup to LLM-generated text (not source quotes).
@@ -140,7 +173,7 @@ class LegalAnswerService:
         if llm.error:
             warning = _merge_warning(warning, "تعذر استدعاء نموذج اللغة؛ تم إرجاع output آمن بدلًا من فشل الطلب.")
         if decision.answer_mode == "external_assisted":
-            warning = EXTERNAL_ASSISTED_WARNING
+            warning = CHAT_EXTERNAL_ASSISTED_WARNING if concise else EXTERNAL_ASSISTED_WARNING
 
         # Semantic classification.
         is_legal = decision.answer_mode != "identity"
@@ -179,13 +212,24 @@ class LegalAnswerService:
             sources=internal_sources,
             is_legal_question=is_legal,
             is_supported_by_internal_sources=decision.internal_grounding_sufficient,
+            timing=TimingMetadata(
+                intent_ms=(t_intent - t_start) * 1000,
+                retrieval_ms=(t_retrieval - t_intent) * 1000,
+                llm_ms=(time.perf_counter() - t_retrieval) * 1000,
+                total_ms=(time.perf_counter() - t_start) * 1000,
+            ),
+            router=_router_metadata(intent),
         )
 
     def _external_assisted_shortcircuit(
         self,
         query: str,
         *,
+        intent: IntentDecision,
         include_retrieval: bool = False,
+        concise: bool = False,
+        t_start: float,
+        t_intent: float,
     ) -> LegalAnswerResponse:
         """Fast path for queries confidently identified as out-of-internal-corpus."""
         from app.answering.source_sufficiency import SourceSufficiencyDecision
@@ -200,13 +244,14 @@ class LegalAnswerService:
             domain=None,
             law=None,
         )
-        mode_max_tokens = MODE_MAX_TOKENS.get("external_assisted", 3072)
+        mode_max_tokens = _mode_max_tokens("external_assisted", concise=concise, config=self.settings)
 
         llm, llm_payload, llm_parse_warning = self._call_llm(
             query=query,
             decision=decision,
             internal_source_blocks=[],
             max_tokens=mode_max_tokens,
+            concise=concise,
         )
 
         final_answer, answer_from_sources, external_or_assisted_explanation, warning = self._answer_fields(
@@ -215,6 +260,7 @@ class LegalAnswerService:
             internal_sources=[],
             external_sources=[],
             llm_error=llm.error,
+            concise=concise,
         )
 
         if final_answer and llm_payload:
@@ -223,7 +269,7 @@ class LegalAnswerService:
         if llm.error:
             warning = _merge_warning(warning, "تعذر استدعاء نموذج اللغة؛ تم إرجاع output آمن بدلًا من فشل الطلب.")
         else:
-            warning = EXTERNAL_ASSISTED_WARNING
+            warning = CHAT_EXTERNAL_ASSISTED_WARNING if concise else EXTERNAL_ASSISTED_WARNING
 
         return LegalAnswerResponse(
             query=query,
@@ -256,6 +302,13 @@ class LegalAnswerService:
             sources=[],
             is_legal_question=True,
             is_supported_by_internal_sources=False,
+            timing=TimingMetadata(
+                intent_ms=(t_intent - t_start) * 1000,
+                retrieval_ms=0,
+                llm_ms=(time.perf_counter() - t_intent) * 1000,
+                total_ms=(time.perf_counter() - t_start) * 1000,
+            ),
+            router=_router_metadata(intent),
         )
 
     def _call_llm(
@@ -265,6 +318,7 @@ class LegalAnswerService:
         decision: Any,
         internal_source_blocks: list[dict[str, Any]],
         max_tokens: int,
+        concise: bool = False,
     ) -> tuple[LLMCallMetadata, dict[str, Any] | None, str | None]:
         """Call the LLM and parse/validate the response. Returns (llm_meta, payload, parse_warning)."""
         llm = LLMCallMetadata(
@@ -288,6 +342,7 @@ class LegalAnswerService:
                     internal_sources=internal_source_blocks,
                     external_sources=[],
                     external_sources_verified_by_system=False,
+                    concise=concise,
                 ),
                 temperature=0.0,
                 max_tokens=max_tokens,
@@ -361,6 +416,7 @@ class LegalAnswerService:
         internal_sources: list[SourceCitation],
         external_sources: list[SourceCitation],
         llm_error: str | None,
+        concise: bool = False,
     ) -> tuple[str, str | None, str | None, str | None]:
         if payload:
             final_answer = _string_value(payload.get("final_answer"))
@@ -373,7 +429,7 @@ class LegalAnswerService:
             warning = _string_value(payload.get("warning"))
             if final_answer:
                 if mode == "external_assisted":
-                    warning = _merge_warning(warning, EXTERNAL_ASSISTED_WARNING)
+                    warning = _merge_warning(warning, CHAT_EXTERNAL_ASSISTED_WARNING if concise else EXTERNAL_ASSISTED_WARNING)
                     answer_from_sources = None
                 return final_answer, answer_from_sources, external_or_assisted_explanation, warning
 
@@ -382,10 +438,12 @@ class LegalAnswerService:
             internal_sources=internal_sources,
             external_sources=external_sources,
             llm_error=llm_error,
+            concise=concise,
         )
 
 
-def _identity_response(query: str) -> LegalAnswerResponse:
+def _identity_response(query: str, intent: IntentDecision, t_start: float, t_intent: float) -> LegalAnswerResponse:
+    t_total = time.perf_counter()
     return LegalAnswerResponse(
         query=query,
         answer_mode="identity",
@@ -414,11 +472,21 @@ def _identity_response(query: str) -> LegalAnswerResponse:
         grounding_sufficient=False,
         assisted_explanation=IDENTITY_ANSWER,
         sources=[],
+        is_legal_question=False,
+        is_supported_by_internal_sources=False,
+        timing=TimingMetadata(
+            intent_ms=(t_intent - t_start) * 1000,
+            retrieval_ms=0,
+            llm_ms=0,
+            total_ms=(t_total - t_start) * 1000,
+        ),
+        router=_router_metadata(intent),
     )
 
 
-def _conversation_response(query: str, intent: Any) -> LegalAnswerResponse:
+def _conversation_response(query: str, intent: Any, t_start: float, t_intent: float) -> LegalAnswerResponse:
     """Local response for greetings / thanks / small-talk — no retrieval, no LLM."""
+    t_total = time.perf_counter()
     norm = normalize_legal_arabic(query)
     # Pick sub-category response
     answer = CONVERSATION_GENERIC
@@ -458,11 +526,19 @@ def _conversation_response(query: str, intent: Any) -> LegalAnswerResponse:
         sources=[],
         is_legal_question=False,
         is_supported_by_internal_sources=False,
+        timing=TimingMetadata(
+            intent_ms=(t_intent - t_start) * 1000,
+            retrieval_ms=0,
+            llm_ms=0,
+            total_ms=(t_total - t_start) * 1000,
+        ),
+        router=_router_metadata(intent),
     )
 
 
-def _non_legal_response(query: str, intent: Any) -> LegalAnswerResponse:
+def _non_legal_response(query: str, intent: Any, t_start: float, t_intent: float) -> LegalAnswerResponse:
     """Local response for non-legal queries — no retrieval, no LLM."""
+    t_total = time.perf_counter()
     empty_summary = RetrievalSummary(
         domain=None, law=None, top_k_used=0, result_count=0,
         source_count=0, internal_source_count=0, external_source_count=0,
@@ -489,7 +565,98 @@ def _non_legal_response(query: str, intent: Any) -> LegalAnswerResponse:
         sources=[],
         is_legal_question=False,
         is_supported_by_internal_sources=False,
+        timing=TimingMetadata(
+            intent_ms=(t_intent - t_start) * 1000,
+            retrieval_ms=0,
+            llm_ms=0,
+            total_ms=(t_total - t_start) * 1000,
+        ),
+        router=_router_metadata(intent),
     )
+
+
+def _ambiguous_response(query: str, intent: Any, t_start: float, t_intent: float) -> LegalAnswerResponse:
+    """Fast-path for ambiguous queries that need clarification (no LLM, no Qdrant)."""
+    t_total = time.perf_counter()
+    empty_summary = RetrievalSummary(
+        domain=None, law=None, top_k_used=0, result_count=0,
+        source_count=0, internal_source_count=0, external_source_count=0,
+        sufficiency_reasons=["ambiguous_routed_without_retrieval"],
+        sufficiency_metrics={"shortcircuit": True},
+    )
+    return LegalAnswerResponse(
+        query=query,
+        answer_mode="insufficient",
+        is_out_of_internal_corpus=False,
+        internal_grounding_sufficient=False,
+        final_answer="من فضلك وضّح سؤالك القانوني أو اذكر المجال القانوني المطلوب.",
+        answer_from_sources=None,
+        external_or_assisted_explanation=None,
+        warning=None,
+        internal_sources=[],
+        external_sources=[],
+        external_sources_verified_by_system=False,
+        retrieval_summary=empty_summary,
+        llm=LLMCallMetadata(called=False, succeeded=False),
+        is_out_of_domain=False,
+        grounding_sufficient=False,
+        assisted_explanation=None,
+        sources=[],
+        is_legal_question=intent.is_legal_question,
+        is_supported_by_internal_sources=False,
+        timing=TimingMetadata(
+            intent_ms=(t_intent - t_start) * 1000,
+            retrieval_ms=0,
+            llm_ms=0,
+            total_ms=(t_total - t_start) * 1000,
+        ),
+        router=_router_metadata(intent),
+    )
+
+
+def _router_metadata(intent: IntentDecision) -> RouterMetadata:
+    return RouterMetadata(
+        intent=intent.intent.value,
+        confidence=round(float(intent.confidence), 4),
+        suggested_domain=intent.suggested_domain,
+        is_legal_question=bool(intent.is_legal_question),
+        is_out_of_internal_corpus=bool(intent.is_out_of_internal_corpus),
+        reasons=list(intent.reasons),
+        scores={key: round(float(value), 4) for key, value in intent.scores.items()},
+    )
+
+
+def _effective_retrieval_filters(
+    filters: RetrievalFilters | None,
+    *,
+    suggested_domain: str | None,
+) -> RetrievalFilters | None:
+    legal_domain = sanitize_optional_value(getattr(filters, "legal_domain", None)) if filters else None
+    if legal_domain == "all":
+        legal_domain = None
+    if not legal_domain:
+        legal_domain = suggested_domain
+    law_number = sanitize_optional_value(getattr(filters, "law_number", None)) if filters else None
+    law_year = sanitize_optional_value(getattr(filters, "law_year", None)) if filters else None
+    status_normalized = sanitize_optional_value(getattr(filters, "status_normalized", None)) if filters else None
+    exclude_repealed = bool(getattr(filters, "exclude_repealed", False)) if filters else False
+    if not any((legal_domain, law_number, law_year, status_normalized, exclude_repealed)):
+        return None
+    return RetrievalFilters(
+        legal_domain=legal_domain,
+        law_number=law_number,
+        law_year=law_year,
+        status_normalized=status_normalized,
+        exclude_repealed=exclude_repealed,
+    )
+
+
+def _mode_max_tokens(mode: str, *, concise: bool, config: Settings) -> int:
+    full_budget = MODE_MAX_TOKENS.get(mode, config.llm_max_tokens)
+    if not concise:
+        return full_budget
+    return min(full_budget, CHAT_CONCISE_MAX_TOKENS.get(mode, 1536))
+
 
 def _fallback_answer(
     *,
@@ -497,6 +664,7 @@ def _fallback_answer(
     internal_sources: list[SourceCitation],
     external_sources: list[SourceCitation],
     llm_error: str | None,
+    concise: bool = False,
 ) -> tuple[str, str | None, str | None, str | None]:
     internal_summary = _sources_summary(internal_sources)
     if mode == "grounded":
@@ -527,6 +695,17 @@ def _fallback_answer(
         return final_answer, answer_from_sources, explanation, _llm_error_warning(llm_error)
 
     if mode == "external_assisted":
+        if concise:
+            explanation = (
+                "شرح عام:\n"
+                "- يمكن تقديم تصور عام للمسألة في سياق القانون المصري دون اعتباره توثيقًا داخليًا.\n"
+                "- تختلف التفاصيل حسب الوقائع والنصوص الرسمية المطبقة.\n"
+                "- لا توجد مصادر داخلية معتمدة لهذا الموضوع في نتيجة التطبيق الحالية.\n\n"
+                "ملاحظة:\n"
+                "هذه إجابة عامة غير موثقة من مصادر التطبيق الداخلية، ويُفضّل مراجعة محامٍ مختص أو النصوص الرسمية."
+            )
+            final_answer = f"{CHAT_EXTERNAL_ASSISTED_WARNING}\n\n{explanation}"
+            return final_answer, None, explanation, _merge_warning(CHAT_EXTERNAL_ASSISTED_WARNING, _llm_error_warning(llm_error))
         external_summary = _sources_summary(external_sources)
         explanation = (
             "يمكن تقديم شرح عام مساعد في سياق القانون المصري، لكن لا توجد مصادر داخلية كافية لتوثيق "

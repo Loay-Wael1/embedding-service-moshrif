@@ -27,11 +27,13 @@ class FakeLLM:
         self.error = error
         self.raw_response = raw_response
         self.messages = None
+        self.max_tokens = None
         self.calls = 0
 
     def chat_completion(self, *, messages, temperature=0.0, max_tokens=None):
         self.calls += 1
         self.messages = messages
+        self.max_tokens = max_tokens
         if self.error:
             raise self.error
         return LLMCompletion(
@@ -119,6 +121,95 @@ def test_answer_service_falls_back_when_llm_is_not_configured():
     assert response.llm.provider == "gemini"
     assert "تعذر استدعاء نموذج اللغة" in (response.warning or "")
     assert response.internal_sources
+
+
+def test_public_chat_concise_prompt_and_answer_are_accepted():
+    llm = FakeLLM(
+        {
+            "final_answer": (
+                "ينظم قانون العمل عقد العمل الفردي باعتباره الإطار الذي يحدد علاقة العامل بصاحب العمل وحقوق كل طرف.\n\n"
+                "أهم الأحكام:\n"
+                "- يحدد العلاقة بين العامل وصاحب العمل.\n"
+                "- يوضح الحقوق والالتزامات الأساسية.\n"
+                "- يرتبط بالأجر وساعات العمل والإجازات.\n\n"
+                "السند القانوني:\n"
+                "استندت الإجابة إلى المادة 1 من قانون العمل المصري."
+            ),
+            "answer_from_sources": "المادة 1 من قانون العمل المصري.",
+            "warning": None,
+        }
+    )
+    service = LegalAnswerService(retriever=FakeRetriever(_grounded_retrieval_result()), llm_client=llm)
+
+    response = service.answer("ما هي أحكام عقد العمل الفردي؟", concise=True)
+
+    assert response.answer_mode == "grounded"
+    assert response.llm.succeeded is True
+    assert "السند القانوني" in response.final_answer
+    assert "أهم الأحكام:" in response.final_answer
+    assert "المصادر:" not in response.final_answer
+    assert "S1" not in response.final_answer
+    assert "S2" not in response.final_answer
+    assert response.warning is None
+    prompt_text = "\n".join(message["content"] for message in llm.messages or [])
+    assert "نمط الإخراج العام المختصر لـ /chat" in prompt_text
+    assert "3 إلى 5" in prompt_text
+    assert "لا تضع داخل final_answer قسمًا بعنوان \"المصادر\"" in prompt_text
+    assert llm.max_tokens is not None
+    assert llm.max_tokens <= 1536
+
+
+def test_full_legal_answer_prompt_and_budget_remain_large():
+    llm = FakeLLM(
+        {
+            "final_answer": "جواب كامل.\n\nالسند القانوني\nالمادة 1.\n\nالمصادر\nقانون العمل.",
+            "answer_from_sources": "المادة 1 من قانون العمل المصري.",
+            "warning": None,
+        }
+    )
+    service = LegalAnswerService(retriever=FakeRetriever(_grounded_retrieval_result()), llm_client=llm)
+
+    response = service.answer("ما هي أحكام عقد العمل الفردي؟")
+
+    assert response.answer_mode == "grounded"
+    assert response.llm.succeeded is True
+    prompt_text = "\n".join(message["content"] for message in llm.messages or [])
+    assert "نمط الإخراج العام لـ /chat" not in prompt_text
+    assert llm.max_tokens is not None
+    assert llm.max_tokens > 1536
+
+
+def test_external_assisted_concise_warning_is_user_friendly():
+    llm = FakeLLM(
+        {
+            "final_answer": (
+                "هذا السؤال خارج نطاق قاعدة المصادر الداخلية المتاحة حاليًا.\n\n"
+                "شرح عام:\n"
+                "- الحضانة تتعلق برعاية الصغير وتنظيم شؤونه.\n"
+                "- تختلف التفاصيل بحسب السن والظروف ومصلحة الطفل.\n"
+                "- يلزم الرجوع للنصوص الرسمية عند التطبيق.\n\n"
+                "ملاحظة:\n"
+                "هذه إجابة عامة غير موثقة من مصادر التطبيق الداخلية، ويُفضّل مراجعة محامٍ مختص أو النصوص الرسمية."
+            ),
+            "answer_from_sources": None,
+            "warning": None,
+        }
+    )
+    service = LegalAnswerService(retriever=None, llm_client=llm)
+
+    response = service.answer("ما أحكام الحضانة؟", concise=True)
+
+    assert response.answer_mode == "external_assisted"
+    assert response.llm.succeeded is True
+    assert "خارج مصادر التطبيق الداخلية" in (response.warning or "")
+    assert "schema_error" not in (response.warning or "")
+    assert "شرح عام:" in response.final_answer
+    assert "ملاحظة:" in response.final_answer
+    assert "هذه إجابة عامة غير موثقة من مصادر التطبيق الداخلية" in response.final_answer
+    assert "المادة " not in response.final_answer
+    assert "المصادر:" not in response.final_answer
+    assert llm.max_tokens is not None
+    assert llm.max_tokens <= 1536
 
 
 def test_identity_query_returns_branding_without_retrieval_or_llm():

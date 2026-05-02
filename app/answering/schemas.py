@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app.answering.intent_router import sanitize_optional_value
 
 
 AnswerMode = Literal["identity", "conversation", "non_legal", "grounded", "assisted", "external_assisted", "insufficient"]
@@ -21,6 +23,17 @@ class LegalAnswerRequest(BaseModel):
     top_k: int | None = Field(default=None, ge=1, le=10)
     include_retrieval: bool = False
 
+    @field_validator("legal_domain", "law_number", "law_year", "status_normalized", mode="before")
+    @classmethod
+    def _sanitize_placeholders(cls, value: object) -> object:
+        return sanitize_optional_value(value)
+
+
+class ChatRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    query: str = Field(..., min_length=1)
+
 
 class SourceCitation(BaseModel):
     source_type: Literal["internal", "external"] = "internal"
@@ -38,6 +51,14 @@ class SourceCitation(BaseModel):
     score: float | None = None
     summary_snippet: str | None = None
     quote_snippet: str | None = None
+
+
+class CompactSourceCitation(BaseModel):
+    law_name: str | None = None
+    article_number: str | None = None
+    title: str | None = None
+    source_url: str | None = None
+    legal_domain: str | None = None
 
 
 class RetrievalSummary(BaseModel):
@@ -66,6 +87,30 @@ class LLMCallMetadata(BaseModel):
     web_search_enabled: bool = False
 
 
+class CompactLLMMetadata(BaseModel):
+    called: bool = False
+    succeeded: bool = False
+    provider: str = "gemini"
+    model: str | None = None
+
+
+class TimingMetadata(BaseModel):
+    intent_ms: float | None = None
+    retrieval_ms: float | None = None
+    llm_ms: float | None = None
+    total_ms: float | None = None
+
+
+class RouterMetadata(BaseModel):
+    intent: str
+    confidence: float
+    suggested_domain: str | None = None
+    is_legal_question: bool
+    is_out_of_internal_corpus: bool
+    reasons: list[str] = Field(default_factory=list)
+    scores: dict[str, float] = Field(default_factory=dict)
+
+
 class LegalAnswerResponse(BaseModel):
     query: str
     answer_mode: AnswerMode
@@ -91,3 +136,16 @@ class LegalAnswerResponse(BaseModel):
     # Semantic classification fields.
     is_legal_question: bool | None = None
     is_supported_by_internal_sources: bool | None = None
+    timing: TimingMetadata | None = None
+    router: RouterMetadata | None = None
+
+
+class ChatResponse(BaseModel):
+    answer_mode: AnswerMode
+    final_answer: str
+    warning: str | None = None
+    is_legal_question: bool | None = None
+    is_supported_by_internal_sources: bool | None = None
+    is_out_of_internal_corpus: bool
+    sources: list[CompactSourceCitation] = Field(default_factory=list)
+    llm: CompactLLMMetadata

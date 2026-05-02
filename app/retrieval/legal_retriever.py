@@ -20,6 +20,10 @@ class LegalRetriever:
         config: Settings | None = None,
         reranker: BaseReranker | None = None,
     ) -> None:
+        import logging
+        logger = logging.getLogger("api.retriever")
+        logger.info("Loading LegalRetriever (This may take a moment to initialize models and connections)...")
+
         self.settings = config or settings
         self.embedding_service = embedding_service or EmbeddingService(self.settings)
         self.client = client or QdrantClient(path=self.settings.qdrant_path)
@@ -29,6 +33,7 @@ class LegalRetriever:
             self.reranker = reranker
         else:
             self.reranker = build_reranker(self.settings.retrieval_reranker, self.settings)
+        logger.info("LegalRetriever initialization complete.")
 
     def search(
         self,
