@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hmac
+import re
 import time
 
 from collections import OrderedDict
@@ -8,7 +10,7 @@ from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.answering import ChatRequest, LegalAnswerRequest, LegalAnswerResponse, LegalAnswerService
-from app.answering.schemas import ChatResponse, CompactSourceCitation, CompactLLMMetadata
+from app.answering.schemas import AnswerParts, ChatResponse, CompactSourceCitation, CompactLLMMetadata
 from app.api.schemas import EmbedBatchRequest, EmbedRequest, EmbedResponse, EmbeddingResultResponse, ServiceInfoResponse
 from app.embeddings.service import EmbeddingService, get_default_embedding_service
 from app.models import RetrievalFilters
@@ -55,6 +57,9 @@ def create_app(
         version="2.0.0",
         description="Embedding API for Egyptian-law retrieval with legal-text normalization.",
         lifespan=lifespan,
+        docs_url="/docs" if settings.enable_public_docs else None,
+        redoc_url="/redoc" if settings.enable_public_docs else None,
+        openapi_url="/openapi.json" if settings.enable_public_docs else None,
     )
 
     # CORS for frontend/mobile access.
@@ -90,6 +95,19 @@ def create_app(
             request.app.state.legal_answer_service = service
         return service
 
+    def _require_internal_api_token(request: Request) -> None:
+        if not settings.require_internal_api_token:
+            return
+
+        expected_token = settings.internal_api_token
+        provided_token = request.headers.get(settings.internal_api_token_header)
+        if (
+            not expected_token
+            or not provided_token
+            or not hmac.compare_digest(provided_token, expected_token)
+        ):
+            raise HTTPException(status_code=401, detail="Unauthorized")
+
     @app.get("/health")
     def health(request: Request) -> dict[str, object]:
         return {
@@ -100,6 +118,7 @@ def create_app(
     @app.post("/warmup")
     def warmup(request: Request) -> dict[str, object]:
         """Loads models if they are not already loaded (e.g. after a cold start)."""
+        _require_internal_api_token(request)
         answer_svc = _get_answer_service(request)
         embedding_svc = _get_service(request)
         ensure_runtime_assets(config=getattr(embedding_svc, "settings", None))
@@ -114,11 +133,14 @@ def create_app(
 
     @app.get("/info", response_model=ServiceInfoResponse, include_in_schema=False)
     def info(request: Request) -> ServiceInfoResponse:
+        _require_internal_api_token(request)
         service = _get_service(request)
         return ServiceInfoResponse(**service.get_info())
 
     @app.get("/legal-info")
-    def legal_info() -> dict[str, object]:
+    def legal_info(request: Request) -> dict[str, object]:
+        if settings.protect_legal_info:
+            _require_internal_api_token(request)
         return {
             "service": "almostashar-legal-rag",
             "app_name": "المستشار",
@@ -153,6 +175,7 @@ def create_app(
 
     @app.post("/embed", response_model=EmbedResponse, include_in_schema=False)
     def embed(request_body: EmbedRequest, request: Request) -> EmbedResponse:
+        _require_internal_api_token(request)
         service = _get_service(request)
         if not request_body.text.strip():
             raise HTTPException(status_code=400, detail="text must not be empty")
@@ -168,6 +191,7 @@ def create_app(
 
     @app.post("/embed/batch", response_model=EmbedResponse, include_in_schema=False)
     def embed_batch(request_body: EmbedBatchRequest, request: Request) -> EmbedResponse:
+        _require_internal_api_token(request)
         service = _get_service(request)
         if not request_body.texts:
             raise HTTPException(status_code=400, detail="texts must not be empty")
@@ -191,6 +215,8 @@ def create_app(
         debug: bool = Query(False, include_in_schema=False)
     ) -> ChatResponse | LegalAnswerResponse:
         from app.preprocessing import normalize_legal_arabic
+
+        _require_internal_api_token(request)
         
         normalized_query = normalize_legal_arabic(request_body.query)
         cache: OrderedDict = request.app.state.chat_cache
@@ -204,6 +230,11 @@ def create_app(
                 cached_response, cached_headers = cached_value
             else:
                 cached_response, cached_headers = cached_value, {}
+            cached_response = _repair_chat_answer_parts(cached_response)
+            if isinstance(cached_value, tuple):
+                cache[normalized_query] = (cached_response, cached_headers)
+            else:
+                cache[normalized_query] = cached_response
             _set_chat_headers(http_response, cached_headers, cache_hit=True)
             return cached_response
 
@@ -233,6 +264,7 @@ def create_app(
             chat_resp = ChatResponse(
                 answer_mode=answer.answer_mode,
                 final_answer=answer.final_answer,
+                answer_parts=answer.answer_parts,
                 warning=answer.warning,
                 is_legal_question=answer.is_legal_question,
                 is_supported_by_internal_sources=answer.is_supported_by_internal_sources,
@@ -245,6 +277,7 @@ def create_app(
                     model=answer.llm.model,
                 ),
             )
+            chat_resp = _repair_chat_answer_parts(chat_resp)
             
             # Cache only deterministic or successfully generated safe responses.
             if not include_debug and is_cacheable_chat_response(chat_resp) and settings.chat_response_cache_size > 0:
@@ -262,6 +295,7 @@ def create_app(
 
     @app.post("/legal-answer", response_model=LegalAnswerResponse, include_in_schema=False)
     def legal_answer(request_body: LegalAnswerRequest, request: Request) -> LegalAnswerResponse:
+        _require_internal_api_token(request)
         if not request_body.query.strip():
             raise HTTPException(status_code=400, detail="query must not be empty")
 
@@ -346,6 +380,90 @@ def is_cacheable_chat_response(response: ChatResponse) -> bool:
     return False
 
 
+def _repair_chat_answer_parts(response: ChatResponse) -> ChatResponse:
+    if response.answer_parts is not None or not response.final_answer:
+        return response
+    response.answer_parts = _answer_parts_from_final_answer(
+        response.final_answer,
+        mode=response.answer_mode,
+        warning=response.warning,
+    )
+    return response
+
+
+def _answer_parts_from_final_answer(final_answer: str, *, mode: str, warning: str | None = None) -> AnswerParts:
+    lines = [line.strip() for line in final_answer.splitlines() if line.strip()]
+    if not lines:
+        return AnswerParts(intro=final_answer, bullets=[])
+
+    heading_index = _first_answer_heading_index(lines)
+    intro = " ".join(lines[:heading_index]).strip() if heading_index is not None and heading_index > 0 else lines[0]
+    section_title = _normalise_answer_heading(lines[heading_index]) if heading_index is not None else None
+
+    bullets: list[str] = []
+    legal_basis_lines: list[str] = []
+    note_lines: list[str] = []
+    active: str | None = None
+    start = heading_index + 1 if heading_index is not None else 1
+
+    for line in lines[start:]:
+        normalized = line.rstrip(":").strip()
+        if _is_bullet_line(line):
+            bullet = _clean_bullet_line(line)
+            if bullet:
+                bullets.append(bullet)
+            continue
+        if normalized == "السند القانوني":
+            active = "legal_basis"
+            continue
+        if normalized in {"ملاحظة", "تنبيه"}:
+            active = "note"
+            continue
+        if active == "legal_basis":
+            legal_basis_lines.append(line)
+        elif active == "note":
+            note_lines.append(line)
+
+    if mode == "external_assisted":
+        section_title = section_title or "شرح عام:"
+        legal_basis = None
+        note = " ".join(note_lines).strip() or warning or "هذه إجابة عامة وليست مستندة إلى مصادر داخلية موثقة."
+    else:
+        legal_basis = " ".join(legal_basis_lines).strip() or None
+        note = " ".join(note_lines).strip() or None
+
+    return AnswerParts(
+        intro=intro,
+        section_title=section_title,
+        bullets=bullets[:5],
+        legal_basis=legal_basis,
+        note=note,
+    )
+
+
+def _first_answer_heading_index(lines: list[str]) -> int | None:
+    for index, line in enumerate(lines):
+        if line.rstrip(":").strip() in {"أهم الأحكام", "أهم الضمانات", "النقاط الأساسية", "شرح عام"}:
+            return index
+    return None
+
+
+def _normalise_answer_heading(value: str) -> str:
+    text = value.strip()
+    return text if text.endswith(":") else f"{text}:"
+
+
+def _is_bullet_line(line: str) -> bool:
+    stripped = line.strip()
+    return stripped.startswith(("-", "•", "*")) or bool(re.match(r"^[0-9٠-٩١٢٣٤٥٦٧٨٩]+[.)-]\s+", stripped))
+
+
+def _clean_bullet_line(line: str) -> str:
+    stripped = line.strip().lstrip("-•* ").strip()
+    stripped = re.sub(r"^[0-9٠-٩١٢٣٤٥٦٧٨٩]+[.)-]\s+", "", stripped).strip()
+    return stripped
+
+
 def _sanitize_response(
     response: LegalAnswerResponse,
     *,
@@ -355,7 +473,7 @@ def _sanitize_response(
     """Strip debug/diagnostic fields in production."""
     keep_debug = settings.debug_response_metadata if include_debug is None else include_debug
     if not keep_debug or not expose_llm_errors:
-        if _has_llm_diagnostic(response):
+        if _has_llm_diagnostic(response) and not response.llm.succeeded:
             response.warning = _safe_llm_warning(response)
         response.llm.error = None
         response.llm.parse_error = None
@@ -363,6 +481,13 @@ def _sanitize_response(
         response.llm.raw_response_preview = None
         response.llm.raw_response_repr_preview = None
         response.llm.usage = None
+        response.llm.primary_provider = None
+        response.llm.primary_model = None
+        response.llm.primary_error = None
+        response.llm.fallback_provider = None
+        response.llm.fallback_model = None
+        response.llm.fallback_used = False
+        response.llm.fallback_error = None
     return response
 
 
@@ -373,6 +498,8 @@ def _has_llm_diagnostic(response: LegalAnswerResponse) -> bool:
         or response.llm.schema_error
         or response.llm.raw_response_preview
         or response.llm.raw_response_repr_preview
+        or response.llm.primary_error
+        or response.llm.fallback_error
     )
 
 

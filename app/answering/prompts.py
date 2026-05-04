@@ -30,7 +30,7 @@ SYSTEM_POLICY = """
 
 أعد JSON صالحًا فقط بالشكل التالي بالضبط:
 
-{"answer_from_sources": "string", "final_answer": "string", "warning": null}
+{"answer_from_sources": "string", "final_answer": "string", "answer_parts": {"intro": "string|null", "section_title": "string|null", "bullets": ["string"], "legal_basis": "string|null", "note": "string|null"}, "warning": null}
 
 قواعد JSON الصارمة:
 1. أعد كائن JSON واحدًا فقط — لا نص قبله ولا بعده.
@@ -40,7 +40,7 @@ SYSTEM_POLICY = """
 5. لا تكتب ``` قبل أو بعد الكائن.
 6. لا تضف مفتاح sources أو metadata — الباكإند يضيفها تلقائيًا.
 7. لا تضف مفتاح external_or_assisted_explanation — الباكإند يستخرجه.
-8. المفاتيح المطلوبة فقط: answer_from_sources و final_answer و warning.
+8. المفاتيح المطلوبة فقط: answer_from_sources و final_answer و answer_parts و warning.
 """.strip()
 
 
@@ -146,6 +146,24 @@ PUBLIC_CHAT_CONCISE_POLICY = """
 """.strip()
 
 
+ANSWER_PARTS_POLICY = """
+أضف مفتاح answer_parts دائمًا بالشكل التالي:
+{
+  "intro": "string|null",
+  "section_title": "string|null",
+  "bullets": ["string"],
+  "legal_basis": "string|null",
+  "note": "string|null"
+}
+
+قواعد answer_parts:
+- في grounded و assisted: intro جملة قصيرة، section_title مثل "أهم الأحكام:" أو "أهم الضمانات:"، bullets من 3 إلى 5 نقاط، legal_basis جملة قصيرة تذكر فقط المواد المسترجعة، note = null.
+- في external_assisted: intro توضح أن الإجابة عامة وخارج المصادر الداخلية، section_title = "شرح عام:"، bullets من 3 إلى 5، legal_basis = null، note = "هذه إجابة عامة وليست مستندة إلى مصادر داخلية موثقة."
+- في identity أو conversation أو non_legal أو insufficient: intro = final_answer، bullets = []، legal_basis = null، note = null.
+- لا تضع أي source_id مثل S1 أو S2 داخل answer_parts.
+""".strip()
+
+
 def build_answer_messages(
     *,
     query: str,
@@ -170,12 +188,12 @@ def build_answer_messages(
     }
     concise_policy = f"\n\n{PUBLIC_CHAT_CONCISE_POLICY}" if concise else ""
     user_message = (
-        "Return ONLY a valid JSON object with keys: answer_from_sources, final_answer, warning.\n"
+        "Return ONLY a valid JSON object with keys: answer_from_sources, final_answer, answer_parts, warning.\n"
         "Do not use markdown fences. Do not write ```json.\n"
         "Do not include any text before or after the JSON object.\n"
         "Escape all newlines inside strings as \\n — no literal line breaks inside JSON string values.\n"
         "Use double quotes for all keys and values.\n\n"
-        f"{MODE_POLICIES[answer_mode]}{concise_policy}\n\n"
+        f"{MODE_POLICIES[answer_mode]}{concise_policy}\n\n{ANSWER_PARTS_POLICY}\n\n"
         "استخدم البيانات التالية وفق سياسة mode فقط:\n"
         f"{json.dumps(user_payload, ensure_ascii=False, indent=2)}"
     )

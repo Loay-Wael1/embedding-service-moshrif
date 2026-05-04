@@ -1,6 +1,8 @@
-def test_openapi_schema(app_client):
-    response = app_client.get("/openapi.json")
-    schema = response.json()
+def test_openapi_schema(fake_embedding_service):
+    from app.api import create_app
+
+    schema = create_app(fake_embedding_service).openapi()
+
     chat_request_schema = schema["components"]["schemas"]["ChatRequest"]
     assert "session_id" not in chat_request_schema["properties"]
     assert "conversation_id" not in chat_request_schema["properties"]

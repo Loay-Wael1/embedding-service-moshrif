@@ -5,7 +5,7 @@ from typing import Any
 
 from app.answering.intent_router import IntentDecision, IntentType, route_intent, sanitize_optional_value
 from app.answering.prompts import build_answer_messages
-from app.answering.schemas import LegalAnswerResponse, LLMCallMetadata, RetrievalSummary, RouterMetadata, SourceCitation, TimingMetadata
+from app.answering.schemas import AnswerParts, LegalAnswerResponse, LLMCallMetadata, RetrievalSummary, RouterMetadata, SourceCitation, TimingMetadata
 from app.answering.source_sufficiency import EvaluatedSource, assess_source_sufficiency
 from app.llm import LLMError, MODE_MAX_TOKENS, OpenAICompatibleLLMClient, clean_generated_text, parse_llm_json, validate_answer_payload
 from app.models import RetrievalFilters
@@ -65,11 +65,13 @@ class LegalAnswerService:
         *,
         retriever: LegalRetriever | None = None,
         llm_client: OpenAICompatibleLLMClient | None = None,
+        fallback_llm_client: OpenAICompatibleLLMClient | None = None,
         config: Settings | None = None,
     ) -> None:
         self.settings = config or settings
         self._retriever = retriever
         self.llm_client = llm_client or OpenAICompatibleLLMClient(config=self.settings)
+        self.fallback_llm_client = fallback_llm_client or _build_fallback_llm_client(self.settings)
 
     @property
     def retriever(self) -> LegalRetriever:
@@ -176,6 +178,13 @@ class LegalAnswerService:
             final_answer = clean_generated_text(final_answer)
         if answer_from_sources and llm_payload:
             answer_from_sources = clean_generated_text(answer_from_sources)
+        answer_parts = _build_answer_parts(
+            mode=decision.answer_mode,
+            final_answer=final_answer,
+            payload=llm_payload,
+            internal_sources=internal_sources,
+            external_sources=external_sources,
+        )
 
         # --- Build user-facing warning (no technical text for public /chat) ---
         if concise and _llm_output_unusable(llm, llm_payload):
@@ -200,6 +209,7 @@ class LegalAnswerService:
             is_out_of_internal_corpus=decision.is_out_of_internal_corpus,
             internal_grounding_sufficient=decision.internal_grounding_sufficient,
             final_answer=final_answer,
+            answer_parts=answer_parts,
             answer_from_sources=answer_from_sources,
             external_or_assisted_explanation=external_or_assisted_explanation,
             warning=warning,
@@ -278,6 +288,13 @@ class LegalAnswerService:
 
         if final_answer and llm_payload:
             final_answer = clean_generated_text(final_answer)
+        answer_parts = _build_answer_parts(
+            mode="external_assisted",
+            final_answer=final_answer,
+            payload=llm_payload,
+            internal_sources=[],
+            external_sources=[],
+        )
 
         if concise and _llm_output_unusable(llm, llm_payload):
             warning = CHAT_EXTERNAL_ASSISTED_WARNING
@@ -292,6 +309,7 @@ class LegalAnswerService:
             is_out_of_internal_corpus=True,
             internal_grounding_sufficient=False,
             final_answer=final_answer,
+            answer_parts=answer_parts,
             answer_from_sources=answer_from_sources,
             external_or_assisted_explanation=external_or_assisted_explanation,
             warning=warning,
@@ -336,40 +354,90 @@ class LegalAnswerService:
         concise: bool = False,
     ) -> tuple[LLMCallMetadata, dict[str, Any] | None, str | None]:
         """Call the LLM and parse/validate the response. Returns (llm_meta, payload, parse_warning)."""
-        llm = LLMCallMetadata(
-            provider=getattr(self.llm_client, "provider_name", self.settings.llm_provider_name),
-            model=getattr(self.llm_client, "model", None),
-            called=True,
-            web_search_enabled=bool(getattr(self.llm_client, "web_search_enabled", self.settings.llm_web_search_enabled)),
-        )
-        llm_payload: dict[str, Any] | None = None
         llm_parse_warning: str | None = None
         self._last_completion_raw = None
+        messages = build_answer_messages(
+            query=query,
+            answer_mode=decision.answer_mode,
+            internal_grounding_sufficient=decision.internal_grounding_sufficient,
+            is_out_of_internal_corpus=decision.is_out_of_internal_corpus,
+            sufficiency_reasons=decision.reasons,
+            internal_sources=internal_source_blocks,
+            external_sources=[],
+            external_sources_verified_by_system=False,
+            concise=concise,
+        )
+
+        primary_llm, primary_payload, primary_raw = self._call_one_llm(
+            self.llm_client,
+            messages=messages,
+            max_tokens=max_tokens,
+            answer_mode=decision.answer_mode,
+        )
+        primary_llm.primary_provider = getattr(self.llm_client, "provider_name", self.settings.llm_provider_name)
+        primary_llm.primary_model = getattr(self.llm_client, "model", None)
+
+        if not _llm_output_unusable(primary_llm, primary_payload):
+            self._last_completion_raw = primary_raw
+            return primary_llm, primary_payload, llm_parse_warning
+
+        primary_error = _llm_attempt_error(primary_llm)
+        fallback_client = self.fallback_llm_client
+        if fallback_client is None:
+            primary_llm.primary_error = primary_error
+            return primary_llm, primary_payload, llm_parse_warning
+
+        fallback_llm, fallback_payload, fallback_raw = self._call_one_llm(
+            fallback_client,
+            messages=messages,
+            max_tokens=max_tokens,
+            answer_mode=decision.answer_mode,
+        )
+        fallback_llm.primary_provider = primary_llm.primary_provider
+        fallback_llm.primary_model = primary_llm.primary_model
+        fallback_llm.primary_error = primary_error
+        fallback_llm.fallback_provider = getattr(fallback_client, "provider_name", None)
+        fallback_llm.fallback_model = getattr(fallback_client, "model", None)
+
+        if not _llm_output_unusable(fallback_llm, fallback_payload):
+            fallback_llm.fallback_used = True
+            self._last_completion_raw = fallback_raw
+            return fallback_llm, fallback_payload, llm_parse_warning
+
+        primary_llm.succeeded = False
+        primary_llm.primary_error = primary_error
+        primary_llm.fallback_provider = fallback_llm.fallback_provider
+        primary_llm.fallback_model = fallback_llm.fallback_model
+        primary_llm.fallback_error = _llm_attempt_error(fallback_llm)
+        return primary_llm, None, llm_parse_warning
+
+    def _call_one_llm(
+        self,
+        client: OpenAICompatibleLLMClient,
+        *,
+        messages: list[dict[str, str]],
+        max_tokens: int,
+        answer_mode: str,
+    ) -> tuple[LLMCallMetadata, dict[str, Any] | None, dict[str, Any] | None]:
+        llm = LLMCallMetadata(
+            provider=getattr(client, "provider_name", self.settings.llm_provider_name),
+            model=getattr(client, "model", None),
+            called=True,
+            web_search_enabled=bool(getattr(client, "web_search_enabled", self.settings.llm_web_search_enabled)),
+        )
+        llm_payload: dict[str, Any] | None = None
+        raw_response: dict[str, Any] | None = None
 
         try:
-            completion = self.llm_client.chat_completion(
-                messages=build_answer_messages(
-                    query=query,
-                    answer_mode=decision.answer_mode,
-                    internal_grounding_sufficient=decision.internal_grounding_sufficient,
-                    is_out_of_internal_corpus=decision.is_out_of_internal_corpus,
-                    sufficiency_reasons=decision.reasons,
-                    internal_sources=internal_source_blocks,
-                    external_sources=[],
-                    external_sources_verified_by_system=False,
-                    concise=concise,
-                ),
-                temperature=0.0,
-                max_tokens=max_tokens,
-            )
-            self._last_completion_raw = completion.raw_response
+            completion = client.chat_completion(messages=messages, temperature=0.0, max_tokens=max_tokens)
+            raw_response = completion.raw_response
             llm = LLMCallMetadata(
-                provider=getattr(self.llm_client, "provider_name", self.settings.llm_provider_name),
+                provider=getattr(client, "provider_name", self.settings.llm_provider_name),
                 model=completion.model,
                 called=True,
                 succeeded=True,
                 usage=completion.usage,
-                web_search_enabled=bool(getattr(self.llm_client, "web_search_enabled", self.settings.llm_web_search_enabled)),
+                web_search_enabled=bool(getattr(client, "web_search_enabled", self.settings.llm_web_search_enabled)),
             )
             try:
                 parsed = parse_llm_json(completion.content)
@@ -378,30 +446,18 @@ class LegalAnswerService:
                 llm.raw_response_preview = _preview(completion.content)
                 llm.raw_response_repr_preview = repr(completion.content[:1000])
             else:
-                validation = validate_answer_payload(parsed, answer_mode=decision.answer_mode)
+                validation = validate_answer_payload(parsed, answer_mode=answer_mode)
                 llm_payload = validation["payload"]
                 if validation.get("schema_error"):
                     llm.schema_error = validation["schema_error"]
         except LLMError as exc:
-            llm = LLMCallMetadata(
-                provider=getattr(self.llm_client, "provider_name", self.settings.llm_provider_name),
-                model=getattr(self.llm_client, "model", None),
-                called=True,
-                succeeded=False,
-                error=str(exc),
-                web_search_enabled=bool(getattr(self.llm_client, "web_search_enabled", self.settings.llm_web_search_enabled)),
-            )
+            llm.error = str(exc)
+            llm.succeeded = False
         except Exception as exc:
-            llm = LLMCallMetadata(
-                provider=getattr(self.llm_client, "provider_name", self.settings.llm_provider_name),
-                model=getattr(self.llm_client, "model", None),
-                called=True,
-                succeeded=False,
-                error=f"Unexpected LLM error: {exc}",
-                web_search_enabled=bool(getattr(self.llm_client, "web_search_enabled", self.settings.llm_web_search_enabled)),
-            )
+            llm.error = f"Unexpected LLM error: {exc}"
+            llm.succeeded = False
 
-        return llm, llm_payload, llm_parse_warning
+        return llm, llm_payload, raw_response
 
     def _build_source_blocks(self, sources: list[EvaluatedSource]) -> list[dict[str, Any]]:
         blocks: list[dict[str, Any]] = []
@@ -465,6 +521,7 @@ def _identity_response(query: str, intent: IntentDecision, t_start: float, t_int
         is_out_of_internal_corpus=False,
         internal_grounding_sufficient=False,
         final_answer=IDENTITY_ANSWER,
+        answer_parts=_simple_answer_parts(IDENTITY_ANSWER),
         answer_from_sources=None,
         external_or_assisted_explanation=IDENTITY_ANSWER,
         warning=None,
@@ -527,6 +584,7 @@ def _conversation_response(query: str, intent: Any, t_start: float, t_intent: fl
         is_out_of_internal_corpus=False,
         internal_grounding_sufficient=False,
         final_answer=answer,
+        answer_parts=_simple_answer_parts(answer),
         answer_from_sources=None,
         external_or_assisted_explanation=None,
         warning=None,
@@ -566,6 +624,7 @@ def _non_legal_response(query: str, intent: Any, t_start: float, t_intent: float
         is_out_of_internal_corpus=False,
         internal_grounding_sufficient=False,
         final_answer=NON_LEGAL_ANSWER,
+        answer_parts=_simple_answer_parts(NON_LEGAL_ANSWER),
         answer_from_sources=None,
         external_or_assisted_explanation=None,
         warning=None,
@@ -605,6 +664,7 @@ def _ambiguous_response(query: str, intent: Any, t_start: float, t_intent: float
         is_out_of_internal_corpus=False,
         internal_grounding_sufficient=False,
         final_answer="من فضلك وضّح سؤالك القانوني أو اذكر المجال القانوني المطلوب.",
+        answer_parts=_simple_answer_parts("من فضلك وضّح سؤالك القانوني أو اذكر المجال القانوني المطلوب."),
         answer_from_sources=None,
         external_or_assisted_explanation=None,
         warning=None,
@@ -671,6 +731,171 @@ def _mode_max_tokens(mode: str, *, concise: bool, config: Settings) -> int:
     if not concise:
         return full_budget
     return min(full_budget, CHAT_CONCISE_MAX_TOKENS.get(mode, 1536))
+
+
+def _build_fallback_llm_client(config: Settings) -> OpenAICompatibleLLMClient | None:
+    if not config.llm_fallback_provider_name or not config.llm_fallback_api_key:
+        return None
+    return OpenAICompatibleLLMClient(
+        api_key=config.llm_fallback_api_key,
+        base_url=config.llm_fallback_base_url,
+        model=config.llm_fallback_model,
+        provider_name=config.llm_fallback_provider_name,
+        timeout_seconds=config.llm_timeout_seconds,
+        config=config,
+    )
+
+
+def _simple_answer_parts(final_answer: str) -> AnswerParts:
+    return AnswerParts(
+        intro=final_answer,
+        section_title=None,
+        bullets=[],
+        legal_basis=None,
+        note=None,
+    )
+
+
+def _build_answer_parts(
+    *,
+    mode: str,
+    final_answer: str,
+    payload: dict[str, Any] | None,
+    internal_sources: list[SourceCitation],
+    external_sources: list[SourceCitation],
+) -> AnswerParts:
+    from_payload = _answer_parts_from_payload(payload)
+    if from_payload is not None:
+        if mode in {"grounded", "assisted"} and not from_payload.legal_basis:
+            from_payload.legal_basis = _legal_basis_from_sources(internal_sources)
+        if mode == "external_assisted":
+            from_payload.legal_basis = from_payload.legal_basis if external_sources else None
+            from_payload.note = from_payload.note or "هذه إجابة عامة وليست مستندة إلى مصادر داخلية موثقة."
+        return from_payload
+
+    if mode in {"identity", "conversation", "non_legal", "insufficient"}:
+        return _simple_answer_parts(final_answer)
+
+    parsed = _answer_parts_from_final_answer(final_answer)
+    if mode in {"grounded", "assisted"}:
+        parsed.legal_basis = parsed.legal_basis or _legal_basis_from_sources(internal_sources)
+    elif mode == "external_assisted":
+        parsed.section_title = parsed.section_title or "شرح عام:"
+        parsed.legal_basis = None
+        parsed.note = parsed.note or "هذه إجابة عامة وليست مستندة إلى مصادر داخلية موثقة."
+    return parsed
+
+
+def _answer_parts_from_payload(payload: dict[str, Any] | None) -> AnswerParts | None:
+    if not payload or not isinstance(payload.get("answer_parts"), dict):
+        return None
+    raw = payload["answer_parts"]
+    bullets = raw.get("bullets")
+    clean_bullets = [
+        bullet.strip().lstrip("-• ").strip()
+        for bullet in bullets
+        if isinstance(bullet, str) and bullet.strip()
+    ] if isinstance(bullets, list) else []
+    return AnswerParts(
+        intro=_string_value(raw.get("intro")),
+        section_title=_normalise_heading(_string_value(raw.get("section_title"))),
+        bullets=clean_bullets[:5],
+        legal_basis=_string_value(raw.get("legal_basis")),
+        note=_string_value(raw.get("note")),
+    )
+
+
+def _answer_parts_from_final_answer(final_answer: str) -> AnswerParts:
+    lines = [line.strip() for line in (final_answer or "").splitlines()]
+    lines = [line for line in lines if line]
+    if not lines:
+        return _simple_answer_parts(final_answer)
+
+    section_index = _first_heading_index(lines)
+    intro = " ".join(lines[:section_index]).strip() if section_index is not None and section_index > 0 else lines[0]
+    section_title = _normalise_heading(lines[section_index]) if section_index is not None else None
+
+    bullets: list[str] = []
+    legal_basis_lines: list[str] = []
+    note_lines: list[str] = []
+    active: str | None = None
+
+    for line in lines[(section_index + 1 if section_index is not None else 1):]:
+        normalised = line.rstrip(":").strip()
+        if line.startswith(("-", "•")):
+            bullet = line.lstrip("-• ").strip()
+            if bullet:
+                bullets.append(bullet)
+            continue
+        if normalised in {"السند القانوني", "سند قانوني"}:
+            active = "legal_basis"
+            continue
+        if normalised in {"ملاحظة", "تنبيه"}:
+            active = "note"
+            continue
+        if _looks_like_section_heading(line) and not section_title:
+            section_title = _normalise_heading(line)
+            continue
+        if active == "legal_basis":
+            legal_basis_lines.append(line)
+        elif active == "note":
+            note_lines.append(line)
+
+    return AnswerParts(
+        intro=intro or final_answer,
+        section_title=section_title,
+        bullets=bullets[:5],
+        legal_basis=" ".join(legal_basis_lines).strip() or None,
+        note=" ".join(note_lines).strip() or None,
+    )
+
+
+def _first_heading_index(lines: list[str]) -> int | None:
+    for index, line in enumerate(lines):
+        if _looks_like_section_heading(line):
+            return index
+    return None
+
+
+def _looks_like_section_heading(line: str) -> bool:
+    text = line.rstrip(":").strip()
+    return text in {
+        "أهم الأحكام",
+        "أهم الضمانات",
+        "أبرز الحقوق والضمانات",
+        "شرح عام",
+    }
+
+
+def _normalise_heading(value: str | None) -> str | None:
+    if not value:
+        return None
+    text = value.strip()
+    if not text:
+        return None
+    return text if text.endswith(":") else f"{text}:"
+
+
+def _legal_basis_from_sources(sources: list[SourceCitation]) -> str | None:
+    entries: list[str] = []
+    for source in sources:
+        article = source.article_number
+        law = source.law_name or source.document_level
+        if article and law:
+            entry = f"المادة {article} من {law}"
+        elif article:
+            entry = f"المادة {article}"
+        elif law:
+            entry = law
+        else:
+            continue
+        if entry not in entries:
+            entries.append(entry)
+        if len(entries) >= 3:
+            break
+    if not entries:
+        return None
+    return "استندت الإجابة إلى " + " و".join(entries) + "."
 
 
 def _fallback_answer(
@@ -889,6 +1114,10 @@ def _llm_output_unusable(llm: LLMCallMetadata, payload: dict[str, Any] | None) -
     if llm.error or llm.parse_error or llm.schema_error:
         return True
     return bool(llm.called and llm.succeeded and payload is None)
+
+
+def _llm_attempt_error(llm: LLMCallMetadata) -> str | None:
+    return llm.error or llm.parse_error or llm.schema_error
 
 
 def _public_chat_llm_warning(mode: str, *, has_internal_sources: bool) -> str:

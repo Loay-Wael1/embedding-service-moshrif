@@ -85,6 +85,13 @@ class LLMCallMetadata(BaseModel):
     raw_response_repr_preview: str | None = None
     usage: dict[str, Any] | None = None
     web_search_enabled: bool = False
+    primary_provider: str | None = None
+    primary_model: str | None = None
+    primary_error: str | None = None
+    fallback_provider: str | None = None
+    fallback_model: str | None = None
+    fallback_used: bool = False
+    fallback_error: str | None = None
 
 
 class CompactLLMMetadata(BaseModel):
@@ -111,12 +118,21 @@ class RouterMetadata(BaseModel):
     scores: dict[str, float] = Field(default_factory=dict)
 
 
+class AnswerParts(BaseModel):
+    intro: str | None = None
+    section_title: str | None = None
+    bullets: list[str] = Field(default_factory=list)
+    legal_basis: str | None = None
+    note: str | None = None
+
+
 class LegalAnswerResponse(BaseModel):
     query: str
     answer_mode: AnswerMode
     is_out_of_internal_corpus: bool
     internal_grounding_sufficient: bool
     final_answer: str
+    answer_parts: AnswerParts | None = None
     answer_from_sources: str | None = None
     external_or_assisted_explanation: str | None = None
     warning: str | None = None
@@ -143,6 +159,7 @@ class LegalAnswerResponse(BaseModel):
 class ChatResponse(BaseModel):
     answer_mode: AnswerMode
     final_answer: str
+    answer_parts: AnswerParts | None = None
     warning: str | None = None
     is_legal_question: bool | None = None
     is_supported_by_internal_sources: bool | None = None

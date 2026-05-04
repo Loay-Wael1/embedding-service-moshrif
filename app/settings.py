@@ -6,6 +6,10 @@ from pathlib import Path
 
 
 TRUE_VALUES = {"1", "true", "yes", "on"}
+GEMINI_DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
+GEMINI_DEFAULT_MODEL = "gemini-2.5-flash"
+GROQ_DEFAULT_BASE_URL = "https://api.groq.com/openai/v1"
+GROQ_DEFAULT_MODEL = "llama-3.3-70b-versatile"
 
 
 def _env_str(name: str, default: str) -> str:
@@ -27,6 +31,74 @@ def _env_bool(name: str, default: bool) -> bool:
     if value is None:
         return default
     return value.strip().lower() in TRUE_VALUES
+
+
+def _provider_api_key(provider: str) -> str | None:
+    normalized = provider.strip().lower()
+    if normalized == "gemini":
+        return _env_optional("GEMINI_API_KEY")
+    if normalized == "groq":
+        return _env_optional("GROQ_API_KEY")
+    return None
+
+
+def _provider_base_url(provider: str) -> str:
+    normalized = provider.strip().lower()
+    if normalized == "groq":
+        return _env_str("GROQ_BASE_URL", GROQ_DEFAULT_BASE_URL)
+    return _env_str("GEMINI_BASE_URL", GEMINI_DEFAULT_BASE_URL)
+
+
+def _provider_model(provider: str) -> str:
+    normalized = provider.strip().lower()
+    if normalized == "groq":
+        return _env_str("GROQ_MODEL", GROQ_DEFAULT_MODEL)
+    return _env_str("GEMINI_MODEL", GEMINI_DEFAULT_MODEL)
+
+
+def _primary_provider_name() -> str:
+    return _env_str("LLM_PROVIDER_NAME", "gemini")
+
+
+def _primary_api_key() -> str | None:
+    provider = _primary_provider_name()
+    return _env_optional("LLM_API_KEY") or _provider_api_key(provider)
+
+
+def _primary_base_url() -> str:
+    provider = _primary_provider_name()
+    return _env_str("LLM_BASE_URL", _provider_base_url(provider))
+
+
+def _primary_model() -> str:
+    provider = _primary_provider_name()
+    return _env_str("LLM_MODEL", _provider_model(provider))
+
+
+def _fallback_provider_name() -> str:
+    explicit = _env_optional("LLM_FALLBACK_PROVIDER_NAME")
+    if explicit:
+        return explicit
+    if _env_optional("LLM_FALLBACK_API_KEY") or _env_optional("GROQ_API_KEY"):
+        return "groq"
+    return ""
+
+
+def _fallback_api_key() -> str | None:
+    provider = _fallback_provider_name()
+    if not provider:
+        return None
+    return _env_optional("LLM_FALLBACK_API_KEY") or _provider_api_key(provider)
+
+
+def _fallback_base_url() -> str:
+    provider = _fallback_provider_name() or "groq"
+    return _env_str("LLM_FALLBACK_BASE_URL", _provider_base_url(provider))
+
+
+def _fallback_model() -> str:
+    provider = _fallback_provider_name() or "groq"
+    return _env_str("LLM_FALLBACK_MODEL", _provider_model(provider))
 
 
 def _default_dataset_path() -> str:
@@ -86,13 +158,14 @@ class Settings:
     retrieval_reranker_local_only: bool = _env_bool("RETRIEVAL_RERANKER_LOCAL_ONLY", False)
     retrieval_hybrid_fusion: str = os.getenv("RETRIEVAL_HYBRID_FUSION", "rrf")
 
-    llm_provider_name: str = _env_str("LLM_PROVIDER_NAME", "gemini")
-    llm_api_key: str | None = _env_optional("LLM_API_KEY") or _env_optional("GEMINI_API_KEY")
-    llm_base_url: str = _env_str(
-        "LLM_BASE_URL",
-        _env_str("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai/"),
-    )
-    llm_model: str = _env_str("LLM_MODEL", _env_str("GEMINI_MODEL", "gemini-2.5-flash"))
+    llm_provider_name: str = _primary_provider_name()
+    llm_api_key: str | None = _primary_api_key()
+    llm_base_url: str = _primary_base_url()
+    llm_model: str = _primary_model()
+    llm_fallback_provider_name: str = _fallback_provider_name()
+    llm_fallback_api_key: str | None = _fallback_api_key()
+    llm_fallback_base_url: str = _fallback_base_url()
+    llm_fallback_model: str = _fallback_model()
     llm_timeout_seconds: float = float(_env_str("LLM_TIMEOUT_SECONDS", _env_str("GEMINI_TIMEOUT_SECONDS", "90")))
     llm_max_tokens: int = int(_env_str("LLM_MAX_TOKENS", _env_str("GEMINI_MAX_TOKENS", "8192")))
     llm_web_search_enabled: bool = _env_bool("LLM_WEB_SEARCH_ENABLED", _env_bool("GEMINI_WEB_SEARCH_ENABLED", False))
@@ -113,10 +186,15 @@ class Settings:
     app_env: str = _env_str("APP_ENV", "production")
     log_level: str = _env_str("LOG_LEVEL", "info")
     debug_response_metadata: bool = _env_bool("DEBUG_RESPONSE_METADATA", False)
+    enable_public_docs: bool = _env_bool("ENABLE_PUBLIC_DOCS", _env_str("APP_ENV", "production").lower() != "production")
     preload_retriever: bool = _env_bool("PRELOAD_RETRIEVER", False)
     chat_response_cache_size: int = int(os.getenv("CHAT_RESPONSE_CACHE_SIZE", "128"))
     chat_answer_top_k: int = int(os.getenv("CHAT_ANSWER_TOP_K", "3"))
     chat_concise_answers: bool = _env_bool("CHAT_CONCISE_ANSWERS", True)
+    require_internal_api_token: bool = _env_bool("REQUIRE_INTERNAL_API_TOKEN", False)
+    internal_api_token: str | None = _env_optional("INTERNAL_API_TOKEN")
+    internal_api_token_header: str = _env_str("INTERNAL_API_TOKEN_HEADER", "X-Internal-Service-Token")
+    protect_legal_info: bool = _env_bool("PROTECT_LEGAL_INFO", False)
 
 
 settings = Settings()

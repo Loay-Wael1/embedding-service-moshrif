@@ -4,7 +4,7 @@ import json
 SAFE_PUBLIC_LLM_WARNING = "تعذر توليد الصياغة النهائية حاليًا، وتم عرض إجابة مستندة إلى المصادر الداخلية المتاحة."
 
 
-def _install_constitutional_answer_service(app_client, llm_client):
+def _install_constitutional_answer_service(app_client, llm_client, fallback_llm_client=None):
     from app.answering import LegalAnswerService
 
     class FakeRetriever:
@@ -47,7 +47,11 @@ def _install_constitutional_answer_service(app_client, llm_client):
             }
 
     app_client.app.state.chat_cache.clear()
-    app_client.app.state.legal_answer_service = LegalAnswerService(retriever=FakeRetriever(), llm_client=llm_client)
+    app_client.app.state.legal_answer_service = LegalAnswerService(
+        retriever=FakeRetriever(),
+        llm_client=llm_client,
+        fallback_llm_client=fallback_llm_client,
+    )
 
 
 def test_info_endpoint_returns_contract(app_client):
@@ -120,6 +124,226 @@ def test_chat_endpoint_identity_intent(app_client):
     assert payload["answer_mode"] == "identity"
     assert payload["llm"]["called"] is False
     assert "retrieval_summary" not in payload
+
+
+def test_chat_cached_response_repairs_missing_answer_parts(app_client):
+    from app.answering.schemas import ChatResponse, CompactLLMMetadata
+    from app.preprocessing import normalize_legal_arabic
+
+    query = "ما هي أحكام عقد العمل؟"
+    normalized = normalize_legal_arabic(query)
+    app_client.app.state.chat_cache.clear()
+    app_client.app.state.chat_cache[normalized] = (
+        ChatResponse(
+            answer_mode="grounded",
+            final_answer=(
+                "ينظم القانون أحكام عقد العمل بصورة عامة.\n\n"
+                "أهم الأحكام:\n"
+                "- يحدد العقد حقوق العامل وصاحب العمل.\n"
+                "- يجب الالتزام بما ورد في القانون.\n\n"
+                "السند القانوني:\n"
+                "استندت الإجابة إلى المادة 1 من قانون العمل المصري."
+            ),
+            answer_parts=None,
+            is_out_of_internal_corpus=False,
+            llm=CompactLLMMetadata(called=True, succeeded=True, provider="gemini", model="gemini-2.5-flash"),
+        ),
+        {"X-Answer-Mode": "grounded"},
+    )
+
+    response = app_client.post("/chat", json={"query": query})
+    payload = response.json()
+
+    assert response.status_code == 200
+    assert response.headers["X-Cache-Hit"] == "true"
+    assert payload["answer_parts"] is not None
+    assert payload["answer_parts"]["section_title"] == "أهم الأحكام:"
+    assert payload["answer_parts"]["bullets"]
+    assert payload["answer_parts"]["legal_basis"] == "استندت الإجابة إلى المادة 1 من قانون العمل المصري."
+
+
+def test_chat_requires_internal_token_when_enabled(app_client):
+    from app.settings import settings
+
+    old_required = settings.require_internal_api_token
+    old_token = settings.internal_api_token
+    old_header = settings.internal_api_token_header
+    try:
+        object.__setattr__(settings, "require_internal_api_token", True)
+        object.__setattr__(settings, "internal_api_token", "test-token")
+        object.__setattr__(settings, "internal_api_token_header", "X-Internal-Service-Token")
+
+        missing = app_client.post("/chat", json={"query": "اسمك إيه؟"})
+        wrong = app_client.post(
+            "/chat",
+            json={"query": "اسمك إيه؟"},
+            headers={"X-Internal-Service-Token": "wrong"},
+        )
+        valid = app_client.post(
+            "/chat",
+            json={"query": "اسمك إيه؟"},
+            headers={"X-Internal-Service-Token": "test-token"},
+        )
+
+        assert missing.status_code == 401
+        assert missing.json() == {"detail": "Unauthorized"}
+        assert wrong.status_code == 401
+        assert valid.status_code == 200
+        assert valid.json()["answer_mode"] == "identity"
+    finally:
+        object.__setattr__(settings, "require_internal_api_token", old_required)
+        object.__setattr__(settings, "internal_api_token", old_token)
+        object.__setattr__(settings, "internal_api_token_header", old_header)
+
+
+def test_health_remains_public_when_internal_token_enabled(app_client):
+    from app.settings import settings
+
+    old_required = settings.require_internal_api_token
+    old_token = settings.internal_api_token
+    try:
+        object.__setattr__(settings, "require_internal_api_token", True)
+        object.__setattr__(settings, "internal_api_token", "test-token")
+
+        response = app_client.get("/health")
+
+        assert response.status_code == 200
+        assert response.json()["status"] == "ok"
+    finally:
+        object.__setattr__(settings, "require_internal_api_token", old_required)
+        object.__setattr__(settings, "internal_api_token", old_token)
+
+
+def test_warmup_requires_internal_token_when_enabled(app_client):
+    from app.settings import settings
+
+    old_required = settings.require_internal_api_token
+    old_token = settings.internal_api_token
+    try:
+        object.__setattr__(settings, "require_internal_api_token", True)
+        object.__setattr__(settings, "internal_api_token", "test-token")
+
+        response = app_client.post("/warmup")
+
+        assert response.status_code == 401
+        assert response.json() == {"detail": "Unauthorized"}
+    finally:
+        object.__setattr__(settings, "require_internal_api_token", old_required)
+        object.__setattr__(settings, "internal_api_token", old_token)
+
+
+def test_legal_answer_requires_internal_token_when_enabled(app_client):
+    from app.settings import settings
+
+    old_required = settings.require_internal_api_token
+    old_token = settings.internal_api_token
+    try:
+        object.__setattr__(settings, "require_internal_api_token", True)
+        object.__setattr__(settings, "internal_api_token", "test-token")
+
+        response = app_client.post("/legal-answer", json={"query": "اسمك إيه؟"})
+
+        assert response.status_code == 401
+        assert response.json() == {"detail": "Unauthorized"}
+    finally:
+        object.__setattr__(settings, "require_internal_api_token", old_required)
+        object.__setattr__(settings, "internal_api_token", old_token)
+
+
+def test_embed_requires_internal_token_when_enabled(app_client):
+    from app.settings import settings
+
+    old_required = settings.require_internal_api_token
+    old_token = settings.internal_api_token
+    try:
+        object.__setattr__(settings, "require_internal_api_token", True)
+        object.__setattr__(settings, "internal_api_token", "test-token")
+
+        response = app_client.post(
+            "/embed",
+            json={"text": "عقد العمل", "mode": "query", "normalize": True},
+        )
+
+        assert response.status_code == 401
+        assert response.json() == {"detail": "Unauthorized"}
+    finally:
+        object.__setattr__(settings, "require_internal_api_token", old_required)
+        object.__setattr__(settings, "internal_api_token", old_token)
+
+
+def test_embed_batch_requires_internal_token_when_enabled(app_client):
+    from app.settings import settings
+
+    old_required = settings.require_internal_api_token
+    old_token = settings.internal_api_token
+    try:
+        object.__setattr__(settings, "require_internal_api_token", True)
+        object.__setattr__(settings, "internal_api_token", "test-token")
+
+        response = app_client.post(
+            "/embed/batch",
+            json={"texts": ["عقد العمل"], "mode": "query", "normalize": True},
+        )
+
+        assert response.status_code == 401
+        assert response.json() == {"detail": "Unauthorized"}
+    finally:
+        object.__setattr__(settings, "require_internal_api_token", old_required)
+        object.__setattr__(settings, "internal_api_token", old_token)
+
+
+def test_info_requires_internal_token_when_enabled(app_client):
+    from app.settings import settings
+
+    old_required = settings.require_internal_api_token
+    old_token = settings.internal_api_token
+    try:
+        object.__setattr__(settings, "require_internal_api_token", True)
+        object.__setattr__(settings, "internal_api_token", "test-token")
+
+        response = app_client.get("/info")
+
+        assert response.status_code == 401
+        assert response.json() == {"detail": "Unauthorized"}
+    finally:
+        object.__setattr__(settings, "require_internal_api_token", old_required)
+        object.__setattr__(settings, "internal_api_token", old_token)
+
+
+def test_docs_are_disabled_when_public_docs_disabled(fake_embedding_service):
+    from fastapi.testclient import TestClient
+
+    from app.api import create_app
+    from app.settings import settings
+
+    old_enabled = settings.enable_public_docs
+    try:
+        object.__setattr__(settings, "enable_public_docs", False)
+        client = TestClient(create_app(fake_embedding_service))
+
+        assert client.get("/docs").status_code == 404
+        assert client.get("/redoc").status_code == 404
+        assert client.get("/openapi.json").status_code == 404
+    finally:
+        object.__setattr__(settings, "enable_public_docs", old_enabled)
+
+
+def test_docs_work_when_public_docs_enabled(fake_embedding_service):
+    from fastapi.testclient import TestClient
+
+    from app.api import create_app
+    from app.settings import settings
+
+    old_enabled = settings.enable_public_docs
+    try:
+        object.__setattr__(settings, "enable_public_docs", True)
+        client = TestClient(create_app(fake_embedding_service))
+
+        assert client.get("/docs").status_code == 200
+        assert client.get("/redoc").status_code == 200
+        assert client.get("/openapi.json").status_code == 200
+    finally:
+        object.__setattr__(settings, "enable_public_docs", old_enabled)
 
 
 def test_chat_endpoint_non_legal_intent(app_client):
@@ -336,6 +560,12 @@ def test_chat_endpoint_constitutional_legal_question_routes_to_retrieval(app_cli
     assert payload["answer_mode"] in {"grounded", "assisted"}
     assert payload["is_legal_question"] is True
     assert payload["llm"]["called"] is True
+    assert payload["answer_parts"] is not None
+    assert payload["answer_parts"]["intro"]
+    assert isinstance(payload["answer_parts"]["bullets"], list)
+    assert len(payload["answer_parts"]["bullets"]) >= 1
+    assert payload["answer_parts"]["legal_basis"]
+    assert payload["final_answer"]
     assert "السند القانوني:" in payload["final_answer"]
     assert "أهم الضمانات:" in payload["final_answer"]
     assert "المصادر:" not in payload["final_answer"]
@@ -349,6 +579,7 @@ def test_chat_endpoint_constitutional_legal_question_routes_to_retrieval(app_cli
     assert captured["max_tokens"] <= 1536
     prompt_text = "\n".join(message["content"] for message in captured["messages"])
     assert "نمط الإخراج العام المختصر لـ /chat" in prompt_text
+    assert "answer_parts" in prompt_text
     assert "لا تضع داخل final_answer قسمًا بعنوان \"المصادر\"" in prompt_text
 
 
@@ -415,6 +646,96 @@ def test_public_chat_invalid_json_uses_safe_warning(app_client):
     assert "parse_error" not in combined
 
 
+def test_public_chat_gemini_429_uses_groq_fallback(app_client):
+    from app.llm import LLMCompletion, LLMRequestError
+
+    class RateLimitedGemini:
+        model = "gemini-2.5-flash"
+        provider_name = "gemini"
+        web_search_enabled = False
+        calls = 0
+
+        def chat_completion(self, *, messages, temperature=0.0, max_tokens=None):
+            self.calls += 1
+            raise LLMRequestError("gemini returned HTTP 429: quota exceeded")
+
+    class GroqFallback:
+        model = "llama-3.3-70b-versatile"
+        provider_name = "groq"
+        web_search_enabled = False
+        calls = 0
+
+        def chat_completion(self, *, messages, temperature=0.0, max_tokens=None):
+            self.calls += 1
+            return LLMCompletion(
+                content=json.dumps(
+                    {
+                        "answer_from_sources": "Groq sources.",
+                        "final_answer": "Groq final answer.",
+                        "warning": None,
+                    },
+                    ensure_ascii=False,
+                ),
+                model=self.model,
+                provider=self.provider_name,
+                usage={"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+                raw_response=None,
+            )
+
+    primary = RateLimitedGemini()
+    fallback = GroqFallback()
+    _install_constitutional_answer_service(app_client, primary, fallback)
+
+    response = app_client.post("/chat", json={"query": "ما ضمانات الحرية الشخصية في الدستور المصري؟"})
+    payload = response.json()
+
+    assert response.status_code == 200
+    assert payload["llm"]["called"] is True
+    assert payload["llm"]["succeeded"] is True
+    assert payload["llm"]["provider"] == "groq"
+    assert payload["llm"]["model"] == "llama-3.3-70b-versatile"
+    assert payload["final_answer"] == "Groq final answer."
+    assert payload["warning"] is None
+    assert primary.calls == 1
+    assert fallback.calls == 1
+
+
+def test_public_chat_both_llm_providers_fail_safely(app_client):
+    from app.llm import LLMRequestError
+
+    class FailingGemini:
+        model = "gemini-2.5-flash"
+        provider_name = "gemini"
+        web_search_enabled = False
+
+        def chat_completion(self, *, messages, temperature=0.0, max_tokens=None):
+            raise LLMRequestError("gemini returned HTTP 429: quota exceeded GEMINI_API_KEY")
+
+    class FailingGroq:
+        model = "llama-3.3-70b-versatile"
+        provider_name = "groq"
+        web_search_enabled = False
+
+        def chat_completion(self, *, messages, temperature=0.0, max_tokens=None):
+            raise LLMRequestError("groq returned HTTP 429: rate limit GROQ_API_KEY")
+
+    _install_constitutional_answer_service(app_client, FailingGemini(), FailingGroq())
+
+    response = app_client.post("/chat", json={"query": "ما ضمانات الحرية الشخصية في الدستور المصري؟"})
+    payload = response.json()
+    diagnostic_text = " ".join(
+        value for value in (payload.get("warning"), payload.get("final_answer"), payload.get("llm", {}).get("error")) if value
+    )
+
+    assert response.status_code == 200
+    assert payload["llm"]["called"] is True
+    assert payload["llm"]["succeeded"] is False
+    assert payload["llm"]["provider"] == "gemini"
+    assert payload["warning"] == SAFE_PUBLIC_LLM_WARNING
+    for leaked in ("429", "quota", "rate limit", "GROQ", "GEMINI", "api key", "API_KEY", "stack"):
+        assert leaked not in diagnostic_text
+
+
 def test_legal_answer_llm_error_details_only_with_debug_metadata(app_client):
     import app.settings as app_settings
     from app.llm import LLMRequestError
@@ -456,6 +777,7 @@ def test_legal_answer_llm_error_details_only_with_debug_metadata(app_client):
         assert debug_response.status_code == 200
         assert "429" in debug_payload["llm"]["error"]
         assert "quota exceeded" in debug_payload["llm"]["error"]
+        assert "429" in debug_payload["llm"]["primary_error"]
     finally:
         object.__setattr__(app_settings.settings, "debug_response_metadata", original_debug)
 

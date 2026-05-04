@@ -66,6 +66,8 @@ def test_answer_service_returns_grounded_mode_for_sufficient_sources():
     assert response.is_out_of_internal_corpus is False
     assert response.llm.succeeded is True
     assert response.llm.provider == "gemini"
+    assert response.answer_parts is not None
+    assert response.answer_parts.legal_basis is not None
     assert len(response.internal_sources) == 2
     assert response.internal_sources[0].law_name == "قانون العمل المصري"
     assert response.external_sources == []
@@ -123,6 +125,85 @@ def test_answer_service_falls_back_when_llm_is_not_configured():
     assert response.internal_sources
 
 
+def test_llm_fallback_not_called_when_gemini_succeeds():
+    primary = FakeLLM(
+        {
+            "final_answer": "Gemini answer.",
+            "answer_from_sources": "Gemini sources.",
+            "warning": None,
+        }
+    )
+    fallback = FakeLLM({"final_answer": "Groq answer.", "answer_from_sources": "Groq sources."})
+    fallback.provider_name = "groq"
+    fallback.model = "llama-3.3-70b-versatile"
+    service = LegalAnswerService(
+        retriever=FakeRetriever(_grounded_retrieval_result()),
+        llm_client=primary,
+        fallback_llm_client=fallback,
+    )
+
+    response = service.answer("\u0645\u0627 \u0647\u0648 \u0639\u0642\u062f \u0627\u0644\u0639\u0645\u0644\u061f")
+
+    assert response.llm.succeeded is True
+    assert response.llm.provider == "gemini"
+    assert primary.calls == 1
+    assert fallback.calls == 0
+
+
+def test_llm_fallback_uses_groq_when_gemini_rate_limited():
+    primary = FakeLLM(error=LLMConfigurationError("gemini returned HTTP 429: quota exceeded"))
+    fallback = FakeLLM(
+        {
+            "final_answer": "Groq answer.",
+            "answer_from_sources": "Groq sources.",
+            "warning": None,
+        }
+    )
+    fallback.provider_name = "groq"
+    fallback.model = "llama-3.3-70b-versatile"
+    service = LegalAnswerService(
+        retriever=FakeRetriever(_grounded_retrieval_result()),
+        llm_client=primary,
+        fallback_llm_client=fallback,
+    )
+
+    response = service.answer("\u0645\u0627 \u0647\u0648 \u0639\u0642\u062f \u0627\u0644\u0639\u0645\u0644\u061f")
+
+    assert response.llm.succeeded is True
+    assert response.llm.provider == "groq"
+    assert response.llm.model == "llama-3.3-70b-versatile"
+    assert response.llm.fallback_used is True
+    assert primary.calls == 1
+    assert fallback.calls == 1
+    assert response.final_answer == "Groq answer."
+
+
+def test_llm_fallback_uses_groq_when_gemini_schema_error():
+    primary = FakeLLM({"final_answer": "Incomplete Gemini answer."})
+    fallback = FakeLLM(
+        {
+            "final_answer": "Groq complete answer.",
+            "answer_from_sources": "Groq complete sources.",
+            "warning": None,
+        }
+    )
+    fallback.provider_name = "groq"
+    fallback.model = "llama-3.3-70b-versatile"
+    service = LegalAnswerService(
+        retriever=FakeRetriever(_grounded_retrieval_result()),
+        llm_client=primary,
+        fallback_llm_client=fallback,
+    )
+
+    response = service.answer("\u0645\u0627 \u0647\u0648 \u0639\u0642\u062f \u0627\u0644\u0639\u0645\u0644\u061f")
+
+    assert response.llm.succeeded is True
+    assert response.llm.provider == "groq"
+    assert response.llm.fallback_used is True
+    assert fallback.calls == 1
+    assert response.final_answer == "Groq complete answer."
+
+
 def test_public_chat_concise_prompt_and_answer_are_accepted():
     llm = FakeLLM(
         {
@@ -150,9 +231,13 @@ def test_public_chat_concise_prompt_and_answer_are_accepted():
     assert "المصادر:" not in response.final_answer
     assert "S1" not in response.final_answer
     assert "S2" not in response.final_answer
+    assert response.answer_parts is not None
+    assert response.answer_parts.bullets
+    assert response.answer_parts.legal_basis
     assert response.warning is None
     prompt_text = "\n".join(message["content"] for message in llm.messages or [])
     assert "نمط الإخراج العام المختصر لـ /chat" in prompt_text
+    assert "answer_parts" in prompt_text
     assert "3 إلى 5" in prompt_text
     assert "لا تضع داخل final_answer قسمًا بعنوان \"المصادر\"" in prompt_text
     assert llm.max_tokens is not None
@@ -208,6 +293,9 @@ def test_external_assisted_concise_warning_is_user_friendly():
     assert "هذه إجابة عامة غير موثقة من مصادر التطبيق الداخلية" in response.final_answer
     assert "المادة " not in response.final_answer
     assert "المصادر:" not in response.final_answer
+    assert response.answer_parts is not None
+    assert response.answer_parts.section_title == "شرح عام:"
+    assert response.answer_parts.note
     assert llm.max_tokens is not None
     assert llm.max_tokens <= 1536
 

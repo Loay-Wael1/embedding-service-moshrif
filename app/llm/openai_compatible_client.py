@@ -57,6 +57,7 @@ class OpenAICompatibleLLMClient:
         self.web_search_enabled = active.llm_web_search_enabled
         self.extra_body = _parse_extra_body(active.llm_extra_body_json)
         self.json_mode = active.llm_json_mode
+        self._client = httpx.Client(timeout=self.timeout_seconds)
 
     def chat_completion(
         self,
@@ -67,7 +68,7 @@ class OpenAICompatibleLLMClient:
     ) -> LLMCompletion:
         if not self.api_key:
             raise LLMConfigurationError(
-                "LLM_API_KEY or GEMINI_API_KEY is not configured. Set it in the environment; do not hard-code it."
+                f"API key is not configured for provider {self.provider_name}. Set it in the environment; do not hard-code it."
             )
 
         effective_max = max_tokens or self.max_tokens
@@ -123,10 +124,9 @@ class OpenAICompatibleLLMClient:
 
     def _http_post(self, url: str, headers: dict[str, str], payload: dict[str, Any]) -> dict[str, Any]:
         try:
-            with httpx.Client(timeout=self.timeout_seconds) as client:
-                response = client.post(url, headers=headers, json=payload)
-                response.raise_for_status()
-                data = response.json()
+            response = self._client.post(url, headers=headers, json=payload)
+            response.raise_for_status()
+            data = response.json()
         except httpx.HTTPStatusError as exc:
             detail = _extract_error_detail(exc.response)
             raise LLMRequestError(
@@ -139,6 +139,9 @@ class OpenAICompatibleLLMClient:
         except ValueError as exc:
             raise LLMRequestError(f"{self.provider_name} returned a non-JSON response.") from exc
         return data
+
+    def close(self) -> None:
+        self._client.close()
 
 
 def _is_response_format_unsupported(error_message: str) -> bool:
