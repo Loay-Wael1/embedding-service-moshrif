@@ -125,6 +125,62 @@ def test_answer_service_falls_back_when_llm_is_not_configured():
     assert response.internal_sources
 
 
+def test_groq_only_success_returns_groq_metadata_and_answer_parts():
+    groq = FakeLLM(
+        {
+            "final_answer": (
+                "Groq legal answer.\n\n"
+                "\u0623\u0647\u0645 \u0627\u0644\u0623\u062d\u0643\u0627\u0645:\n"
+                "- Source-backed point.\n\n"
+                "\u0627\u0644\u0633\u0646\u062f \u0627\u0644\u0642\u0627\u0646\u0648\u0646\u064a:\n"
+                "\u0627\u0633\u062a\u0646\u062f\u062a \u0627\u0644\u0625\u062c\u0627\u0628\u0629 \u0625\u0644\u0649 \u0627\u0644\u0645\u0627\u062f\u0629 1 \u0645\u0646 \u0642\u0627\u0646\u0648\u0646 \u0627\u0644\u0639\u0645\u0644 \u0627\u0644\u0645\u0635\u0631\u064a."
+            ),
+            "answer_from_sources": "Groq source answer.",
+            "warning": None,
+        }
+    )
+    groq.provider_name = "groq"
+    groq.model = "llama-3.3-70b-versatile"
+    service = LegalAnswerService(
+        retriever=FakeRetriever(_grounded_retrieval_result()),
+        llm_client=groq,
+        fallback_llm_client=None,
+    )
+
+    response = service.answer("\u0645\u0627 \u0647\u0648 \u0639\u0642\u062f \u0627\u0644\u0639\u0645\u0644\u061f", concise=True)
+
+    assert response.llm.succeeded is True
+    assert response.llm.provider == "groq"
+    assert response.llm.model == "llama-3.3-70b-versatile"
+    assert response.llm.fallback_used is False
+    assert response.answer_parts is not None
+    assert response.answer_parts.bullets
+
+
+def test_groq_only_failure_without_fallback_returns_safe_source_fallback():
+    groq = FakeLLM(error=LLMConfigurationError("groq returned HTTP 429: rate limit GROQ_API_KEY"))
+    groq.provider_name = "groq"
+    groq.model = "llama-3.3-70b-versatile"
+    service = LegalAnswerService(
+        retriever=FakeRetriever(_grounded_retrieval_result()),
+        llm_client=groq,
+        fallback_llm_client=None,
+    )
+
+    response = service.answer("\u0645\u0627 \u0647\u0648 \u0639\u0642\u062f \u0627\u0644\u0639\u0645\u0644\u061f", concise=True)
+
+    assert response.llm.called is True
+    assert response.llm.succeeded is False
+    assert response.llm.provider == "groq"
+    assert response.llm.fallback_provider is None
+    assert response.internal_sources
+    assert response.answer_parts is not None
+    combined = " ".join(value for value in (response.warning, response.final_answer) if value)
+    assert "GROQ_API_KEY" not in combined
+    assert "429" not in combined
+    assert "rate limit" not in combined
+
+
 def test_llm_fallback_not_called_when_gemini_succeeds():
     primary = FakeLLM(
         {

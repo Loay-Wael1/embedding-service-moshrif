@@ -12,7 +12,7 @@ app_port: 7860
 Backend API for **"المستشار"** — an Egyptian Legal RAG assistant.
 
 Repository description:
-Egyptian Legal RAG API for "المستشار" — BGE-M3 + Qdrant + Gemini backend for grounded legal chatbot answers.
+Egyptian Legal RAG API for "المستشار" — BGE-M3 + Qdrant + Groq backend for grounded legal chatbot answers.
 
 Suggested topics:
 `legal-rag` `egyptian-law` `fastapi` `qdrant` `bge-m3` `gemini-api` `flutter-backend` `rag` `legal-ai` `arabic-nlp`
@@ -21,7 +21,7 @@ Suggested topics:
 
 **المستشار** is an Egyptian legal assistant chatbot designed and developed by **Loay Wael**.
 
-This backend answers Egyptian legal questions using Retrieval-Augmented Generation. It retrieves relevant internal legal sources first, checks whether those sources are sufficient, and then uses Gemini through an OpenAI-compatible endpoint to generate answers grounded in the retrieved sources instead of relying only on the LLM.
+This backend answers Egyptian legal questions using Retrieval-Augmented Generation. It retrieves relevant internal legal sources first, checks whether those sources are sufficient, and then uses Groq through an OpenAI-compatible endpoint to generate answers grounded in the retrieved sources instead of relying only on the LLM.
 
 ## Key Features
 
@@ -31,8 +31,8 @@ This backend answers Egyptian legal questions using Retrieval-Augmented Generati
 - Local Qdrant vector database.
 - Source sufficiency gate before answer generation.
 - Answer modes: `identity`, `conversation`, `non_legal`, `grounded`, `assisted`, `external_assisted`, `insufficient`.
-- Gemini via OpenAI-compatible Chat Completions API.
-- Automatic Groq fallback via OpenAI-compatible API when Gemini is unavailable.
+- Groq via OpenAI-compatible Chat Completions API.
+- Gemini remains configurable, but is not required for the default Groq-only deployment.
 - Compact mobile-friendly `POST /chat` worker endpoint, protected in production.
 - Hidden debug/full endpoint: `POST /legal-answer`.
 - Safe fallback when the LLM fails.
@@ -71,13 +71,13 @@ User Query
 -> Domain Routing
 -> Hybrid Retrieval with Qdrant
 -> Source Sufficiency Gate
--> Gemini Answer Layer
+-> Groq Answer Layer
 -> Compact API Response
 ```
 
 Important routing behavior:
 
-- `identity`, `conversation`, and `non_legal` responses do not call Qdrant or Gemini.
+- `identity`, `conversation`, and `non_legal` responses do not call Qdrant or the LLM.
 - `external_assisted` skips internal retrieval and provides a general legal explanation with a clear warning.
 - `grounded` answers are generated from internal sources only.
 - `assisted` answers separate what came from internal sources from the assisted explanation.
@@ -136,8 +136,8 @@ Response shape:
   "llm": {
     "called": true,
     "succeeded": true,
-    "provider": "gemini",
-    "model": "gemini-2.5-flash"
+    "provider": "groq",
+    "model": "llama-3.3-70b-versatile"
   }
 }
 ```
@@ -171,14 +171,11 @@ Flutter integration rules:
 ## Environment Variables
 
 ```env
-GEMINI_API_KEY=your_key_here
-GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
-GEMINI_MODEL=gemini-2.5-flash
 GROQ_API_KEY=your_groq_key_here
 GROQ_BASE_URL=https://api.groq.com/openai/v1
 GROQ_MODEL=llama-3.3-70b-versatile
-LLM_PROVIDER_NAME=gemini
-LLM_FALLBACK_PROVIDER_NAME=groq
+LLM_PROVIDER_NAME=groq
+LLM_FALLBACK_PROVIDER_NAME=
 API_PORT=8000
 PRELOAD_RETRIEVER=false
 CHAT_CONCISE_ANSWERS=true
@@ -196,32 +193,28 @@ PROTECT_LEGAL_INFO=false
 
 Security notes:
 
-- Put `GEMINI_API_KEY` in environment variables or platform secrets, not in code.
-- Put `GROQ_API_KEY` in environment variables or platform secrets to enable automatic fallback.
-- Groq is not xAI Grok. The fallback uses Groq's OpenAI-compatible endpoint.
+- Put GROQ_API_KEY in environment variables or platform secrets, not in code.
+- Gemini is no longer required when running Groq-only.
+- Groq is not xAI Grok. This deployment uses Groq's OpenAI-compatible endpoint.
 - Flutter does not change: `/chat` still accepts only `{"query":"..."}`.
 - In production, Flutter should call the C# backend only. Enable `REQUIRE_INTERNAL_API_TOKEN=true` on the Python service once the C# gateway is configured.
 - In production, set `ENABLE_PUBLIC_DOCS=false` so `/docs`, `/redoc`, and `/openapi.json` return 404.
-- If Gemini quota is exhausted or unavailable, the backend tries Groq automatically.
 - For Hugging Face Spaces, use **Settings -> Secrets**.
 - Do not commit real API keys.
 
-### Gemini Primary + Groq Fallback
+### Groq-Only LLM
 
 Secrets:
 
 ```env
-GEMINI_API_KEY=<gemini key>
 GROQ_API_KEY=<groq key>
 ```
 
 Variables:
 
 ```env
-LLM_PROVIDER_NAME=gemini
-LLM_FALLBACK_PROVIDER_NAME=groq
-GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
-GEMINI_MODEL=gemini-2.5-flash
+LLM_PROVIDER_NAME=groq
+LLM_FALLBACK_PROVIDER_NAME=
 GROQ_BASE_URL=https://api.groq.com/openai/v1
 GROQ_MODEL=llama-3.3-70b-versatile
 ```
@@ -237,9 +230,11 @@ pip install -r requirements.txt
 Run locally:
 
 ```powershell
-$env:GEMINI_API_KEY="YOUR_KEY"
-$env:GEMINI_BASE_URL="https://generativelanguage.googleapis.com/v1beta/openai/"
-$env:GEMINI_MODEL="gemini-2.5-flash"
+$env:GROQ_API_KEY="YOUR_KEY"
+$env:LLM_PROVIDER_NAME="groq"
+$env:LLM_FALLBACK_PROVIDER_NAME=""
+$env:GROQ_BASE_URL="https://api.groq.com/openai/v1"
+$env:GROQ_MODEL="llama-3.3-70b-versatile"
 $env:API_PORT="8000"
 python main.py
 ```
@@ -283,10 +278,8 @@ Recommended Hugging Face variables:
 
 ```env
 API_PORT=7860
-LLM_PROVIDER_NAME=gemini
-LLM_FALLBACK_PROVIDER_NAME=groq
-GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
-GEMINI_MODEL=gemini-2.5-flash
+LLM_PROVIDER_NAME=groq
+LLM_FALLBACK_PROVIDER_NAME=
 GROQ_BASE_URL=https://api.groq.com/openai/v1
 GROQ_MODEL=llama-3.3-70b-versatile
 PRELOAD_RETRIEVER=false
@@ -302,8 +295,8 @@ ENABLE_PUBLIC_DOCS=false
 PROTECT_LEGAL_INFO=false
 ```
 
-Set `GEMINI_API_KEY` in Hugging Face **Settings -> Secrets**.
-Set `GROQ_API_KEY` in Hugging Face **Settings -> Secrets** to enable fallback.
+Set GROQ_API_KEY in Hugging Face **Settings -> Secrets**.
+GEMINI_API_KEY is not required for Groq-only deployment.
 If the assets dataset is private, also set `HF_TOKEN` as a Space secret with read access.
 
 ## Performance Notes

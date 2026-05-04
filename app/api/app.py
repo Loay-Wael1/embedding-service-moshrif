@@ -146,7 +146,7 @@ def create_app(
             "app_name": "المستشار",
             "status": "ok",
             "description": "Legal RAG API for Egyptian law",
-            "llm_provider": "gemini",
+            "llm_provider": settings.llm_provider_name,
             "retrieval_backend": "qdrant",
             "embedding_backend": "flagembedding_bgem3",
             "answer_modes": [

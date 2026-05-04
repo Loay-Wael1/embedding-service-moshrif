@@ -6,6 +6,7 @@ from pathlib import Path
 
 
 TRUE_VALUES = {"1", "true", "yes", "on"}
+NULLISH_VALUES = {"", "none", "null", "undefined"}
 GEMINI_DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 GEMINI_DEFAULT_MODEL = "gemini-2.5-flash"
 GROQ_DEFAULT_BASE_URL = "https://api.groq.com/openai/v1"
@@ -57,7 +58,7 @@ def _provider_model(provider: str) -> str:
 
 
 def _primary_provider_name() -> str:
-    return _env_str("LLM_PROVIDER_NAME", "gemini")
+    return _env_str("LLM_PROVIDER_NAME", "groq")
 
 
 def _primary_api_key() -> str | None:
@@ -77,10 +78,11 @@ def _primary_model() -> str:
 
 def _fallback_provider_name() -> str:
     explicit = _env_optional("LLM_FALLBACK_PROVIDER_NAME")
-    if explicit:
+    if explicit is not None:
+        normalized = explicit.strip().lower()
+        if normalized in NULLISH_VALUES:
+            return ""
         return explicit
-    if _env_optional("LLM_FALLBACK_API_KEY") or _env_optional("GROQ_API_KEY"):
-        return "groq"
     return ""
 
 

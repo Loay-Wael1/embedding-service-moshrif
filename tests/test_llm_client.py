@@ -32,24 +32,72 @@ def test_openai_compatible_client_requires_api_key_before_request():
         client.chat_completion(messages=[{"role": "user", "content": "hello"}])
 
 
-def test_fallback_provider_resolution_uses_groq_aliases(monkeypatch):
+def test_provider_resolution_defaults_to_groq_only(monkeypatch):
     import app.settings as settings_module
 
-    monkeypatch.delenv("LLM_FALLBACK_API_KEY", raising=False)
+    for name in (
+        "LLM_PROVIDER_NAME",
+        "LLM_API_KEY",
+        "LLM_BASE_URL",
+        "LLM_MODEL",
+        "LLM_FALLBACK_PROVIDER_NAME",
+        "LLM_FALLBACK_API_KEY",
+        "GROQ_API_KEY",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+    reloaded = importlib.reload(settings_module)
+    cfg = reloaded.Settings()
+
+    assert cfg.llm_provider_name == "groq"
+    assert cfg.llm_base_url == "https://api.groq.com/openai/v1"
+    assert cfg.llm_model == "llama-3.3-70b-versatile"
+    assert cfg.llm_fallback_provider_name == ""
+    assert cfg.llm_fallback_api_key is None
+
+    importlib.reload(settings_module)
+
+
+def test_primary_provider_resolution_uses_groq_alias(monkeypatch):
+    import app.settings as settings_module
+
+    monkeypatch.setenv("LLM_PROVIDER_NAME", "groq")
+    monkeypatch.delenv("LLM_API_KEY", raising=False)
     monkeypatch.setenv("GROQ_API_KEY", "groq-key")
     try:
         reloaded = importlib.reload(settings_module)
         cfg = reloaded.Settings()
-        assert cfg.llm_fallback_provider_name == "groq"
-        assert cfg.llm_fallback_api_key == "groq-key"
-        assert cfg.llm_fallback_base_url == "https://api.groq.com/openai/v1"
-        assert cfg.llm_fallback_model == "llama-3.3-70b-versatile"
+        assert cfg.llm_provider_name == "groq"
+        assert cfg.llm_api_key == "groq-key"
+        assert cfg.llm_base_url == "https://api.groq.com/openai/v1"
+        assert cfg.llm_model == "llama-3.3-70b-versatile"
+        assert cfg.llm_fallback_provider_name == ""
     finally:
+        monkeypatch.delenv("LLM_PROVIDER_NAME", raising=False)
         monkeypatch.delenv("GROQ_API_KEY", raising=False)
         importlib.reload(settings_module)
 
 
-def test_fallback_provider_resolution_generic_key_overrides_groq(monkeypatch):
+@pytest.mark.parametrize("value", ["", "none", "null", "undefined", "None", "NULL"])
+def test_empty_or_none_fallback_provider_disables_fallback(monkeypatch, value):
+    import app.settings as settings_module
+
+    monkeypatch.setenv("LLM_FALLBACK_PROVIDER_NAME", value)
+    monkeypatch.setenv("LLM_FALLBACK_API_KEY", "fallback-key")
+    monkeypatch.setenv("GROQ_API_KEY", "groq-key")
+    try:
+        reloaded = importlib.reload(settings_module)
+        cfg = reloaded.Settings()
+        assert cfg.llm_fallback_provider_name == ""
+        assert cfg.llm_fallback_api_key is None
+    finally:
+        monkeypatch.delenv("LLM_FALLBACK_PROVIDER_NAME", raising=False)
+        monkeypatch.delenv("LLM_FALLBACK_API_KEY", raising=False)
+        monkeypatch.delenv("GROQ_API_KEY", raising=False)
+        importlib.reload(settings_module)
+
+
+def test_explicit_fallback_provider_resolution_generic_key_overrides_groq(monkeypatch):
     import app.settings as settings_module
 
     monkeypatch.setenv("GROQ_API_KEY", "groq-key")

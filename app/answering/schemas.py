@@ -74,7 +74,7 @@ class RetrievalSummary(BaseModel):
 
 
 class LLMCallMetadata(BaseModel):
-    provider: str = "gemini"
+    provider: str = "groq"
     model: str | None = None
     called: bool = False
     succeeded: bool = False
@@ -97,7 +97,7 @@ class LLMCallMetadata(BaseModel):
 class CompactLLMMetadata(BaseModel):
     called: bool = False
     succeeded: bool = False
-    provider: str = "gemini"
+    provider: str = "groq"
     model: str | None = None
 
 
