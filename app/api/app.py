@@ -435,7 +435,7 @@ def _answer_parts_from_final_answer(final_answer: str, *, mode: str, warning: st
     return AnswerParts(
         intro=intro,
         section_title=section_title,
-        bullets=bullets[:5],
+        bullets=bullets[:6],
         legal_basis=legal_basis,
         note=note,
     )
@@ -443,7 +443,7 @@ def _answer_parts_from_final_answer(final_answer: str, *, mode: str, warning: st
 
 def _first_answer_heading_index(lines: list[str]) -> int | None:
     for index, line in enumerate(lines):
-        if line.rstrip(":").strip() in {"أهم الأحكام", "أهم الضمانات", "النقاط الأساسية", "شرح عام"}:
+        if line.rstrip(":").strip() in {"أهم الأحكام", "أهم الضمانات", "النقاط الأساسية", "الخطوات العملية", "ما يمكنك فعله", "شرح عام"}:
             return index
     return None
 

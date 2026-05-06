@@ -266,9 +266,10 @@ def test_public_chat_concise_prompt_and_answer_are_accepted():
             "final_answer": (
                 "ينظم قانون العمل عقد العمل الفردي باعتباره الإطار الذي يحدد علاقة العامل بصاحب العمل وحقوق كل طرف.\n\n"
                 "أهم الأحكام:\n"
-                "- يحدد العلاقة بين العامل وصاحب العمل.\n"
-                "- يوضح الحقوق والالتزامات الأساسية.\n"
-                "- يرتبط بالأجر وساعات العمل والإجازات.\n\n"
+                "- يحدد العلاقة القانونية بين العامل وصاحب العمل من بداية التعاقد.\n"
+                "- يوضح الحقوق والالتزامات الأساسية لكل طرف في علاقة العمل.\n"
+                "- يرتبط بالأجر وساعات العمل والإجازات بحسب ما يرد في العقد والقانون.\n"
+                "- يساعد على تحديد الأساس القانوني عند النزاع على شروط العمل.\n\n"
                 "السند القانوني:\n"
                 "استندت الإجابة إلى المادة 1 من قانون العمل المصري."
             ),
@@ -288,16 +289,66 @@ def test_public_chat_concise_prompt_and_answer_are_accepted():
     assert "S1" not in response.final_answer
     assert "S2" not in response.final_answer
     assert response.answer_parts is not None
-    assert response.answer_parts.bullets
+    assert 4 <= len(response.answer_parts.bullets) <= 6
     assert response.answer_parts.legal_basis
     assert response.warning is None
     prompt_text = "\n".join(message["content"] for message in llm.messages or [])
-    assert "نمط الإخراج العام المختصر لـ /chat" in prompt_text
+    assert "نمط الإخراج العام المتوازن لـ /chat" in prompt_text
+    assert "مختصر لكنه كافٍ ومفيد" in prompt_text
     assert "answer_parts" in prompt_text
-    assert "3 إلى 5" in prompt_text
+    assert "4 إلى 6" in prompt_text
+    assert "answer_detail_level" in prompt_text
     assert "لا تضع داخل final_answer قسمًا بعنوان \"المصادر\"" in prompt_text
     assert llm.max_tokens is not None
     assert llm.max_tokens <= 1536
+
+
+def test_public_chat_balanced_grounded_procedural_answer_is_not_minimal():
+    llm = FakeLLM(
+        {
+            "final_answer": (
+                "إذا كان لك مبلغ مالي ثابت في ذمة شخص وامتنع عن رده، فالفكرة القانونية الأساسية هي إثبات الدين ثم مطالبته بالوفاء قبل اللجوء للقضاء عند الحاجة.\n\n"
+                "الخطوات العملية:\n"
+                "- اجمع ما يثبت الدين، مثل إيصال أو عقد أو رسائل أو أي دليل كتابي متاح.\n"
+                "- وجّه مطالبة واضحة بالسداد، واحتفظ بما يثبت تاريخ المطالبة ومضمونها.\n"
+                "- إذا لم يتم السداد، يمكن اللجوء لدعوى مدنية للمطالبة بالمبلغ المستحق.\n"
+                "- رتّب المستندات التي توضح قيمة المبلغ وسبب استحقاقه وامتناع المدين عن الرد.\n"
+                "- لا تعتمد على الادعاء المجرد وحده إذا كانت المصادر المتاحة تشترط وجود سند أو دليل.\n\n"
+                "السند القانوني:\n"
+                "استندت الإجابة إلى المادة 1 والمادة 2 من القانون المدني المصري."
+            ),
+            "answer_from_sources": "المادة 1 والمادة 2 من القانون المدني المصري.",
+            "answer_parts": {
+                "intro": "إذا كان لك مبلغ مالي ثابت في ذمة شخص وامتنع عن رده، فالفكرة القانونية الأساسية هي إثبات الدين ثم مطالبته بالوفاء قبل اللجوء للقضاء عند الحاجة.",
+                "section_title": "الخطوات العملية:",
+                "bullets": [
+                    "اجمع ما يثبت الدين، مثل إيصال أو عقد أو رسائل أو أي دليل كتابي متاح.",
+                    "وجّه مطالبة واضحة بالسداد، واحتفظ بما يثبت تاريخ المطالبة ومضمونها.",
+                    "إذا لم يتم السداد، يمكن اللجوء لدعوى مدنية للمطالبة بالمبلغ المستحق.",
+                    "رتّب المستندات التي توضح قيمة المبلغ وسبب استحقاقه وامتناع المدين عن الرد.",
+                    "لا تعتمد على الادعاء المجرد وحده إذا كانت المصادر المتاحة تشترط وجود سند أو دليل.",
+                ],
+                "legal_basis": "استندت الإجابة إلى المادة 999 من قانون غير مسترجع.",
+                "note": None,
+            },
+            "warning": None,
+        }
+    )
+    service = LegalAnswerService(retriever=FakeRetriever(_civil_debt_retrieval_result()), llm_client=llm)
+
+    response = service.answer(
+        "إذا أقرضت شخصًا مبلغًا من المال ولم يقم برده، ما هي الخطوات القانونية لاسترداد أموالي؟",
+        concise=True,
+    )
+
+    assert response.answer_mode == "grounded"
+    assert response.answer_parts is not None
+    assert response.answer_parts.section_title == "الخطوات العملية:"
+    assert 4 <= len(response.answer_parts.bullets) <= 6
+    assert len(response.final_answer.split()) >= 65
+    assert response.final_answer.count("\n- ") >= 4
+    assert response.answer_parts.legal_basis == "استندت الإجابة إلى المادة 1 من القانون المدني المصري والمادة 2 من القانون المدني المصري."
+    assert "999" not in (response.answer_parts.legal_basis or "")
 
 
 def test_full_legal_answer_prompt_and_budget_remain_large():
@@ -447,6 +498,50 @@ def _grounded_retrieval_result() -> dict:
                 "source_url": "https://example.com/labor/2",
                 "summary": "تعريف العامل وصاحب العمل وعقد العمل.",
                 "content": "تتضمن المادة تعريفات مرتبطة بالعامل وصاحب العمل وعلاقة العمل.",
+                "rank_explanation": ["strong_title_overlap"],
+            },
+        ],
+    }
+
+
+def _civil_debt_retrieval_result() -> dict:
+    return {
+        "normalized_query": "اذا اقرضت شخصا مبلغا من المال ولم يقم برده",
+        "query_analysis": {
+            "out_of_domain": False,
+            "suggested_domain": "civil_law",
+        },
+        "results": [
+            {
+                "id": "civil-1",
+                "rerank_score": 0.91,
+                "score": 0.82,
+                "law_name": "القانون المدني المصري",
+                "law_number": "131",
+                "law_year": "1948",
+                "article_number": "1",
+                "title": "إثبات الالتزام والمطالبة بالدين",
+                "legal_domain": "civil_law",
+                "section_level": "الالتزامات",
+                "source_url": "https://example.com/civil/1",
+                "summary": "قواعد مدنية عن الالتزام والدين والمطالبة بالمال المستحق.",
+                "content": "إذا أقرض الدائن شخصًا مبلغًا من المال ولم يرده المدين، يجوز إثبات الدين والمطالبة برد المال.",
+                "rank_explanation": ["strong_summary_overlap"],
+            },
+            {
+                "id": "civil-2",
+                "rerank_score": 0.84,
+                "score": 0.76,
+                "law_name": "القانون المدني المصري",
+                "law_number": "131",
+                "law_year": "1948",
+                "article_number": "2",
+                "title": "المطالبة القضائية بالالتزام",
+                "legal_domain": "civil_law",
+                "section_level": "الالتزامات",
+                "source_url": "https://example.com/civil/2",
+                "summary": "إجراءات مطالبة المدين بتنفيذ الالتزام أو رد المال.",
+                "content": "للدائن عند عدم سداد الدين أن يطالب المدين بالوفاء وأن يلجأ إلى المحكمة لاسترداد أمواله.",
                 "rank_explanation": ["strong_title_overlap"],
             },
         ],

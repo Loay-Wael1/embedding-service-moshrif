@@ -193,6 +193,7 @@ class Settings:
     chat_response_cache_size: int = int(os.getenv("CHAT_RESPONSE_CACHE_SIZE", "128"))
     chat_answer_top_k: int = int(os.getenv("CHAT_ANSWER_TOP_K", "3"))
     chat_concise_answers: bool = _env_bool("CHAT_CONCISE_ANSWERS", True)
+    chat_answer_detail_level: str = _env_str("CHAT_ANSWER_DETAIL_LEVEL", "balanced")
     require_internal_api_token: bool = _env_bool("REQUIRE_INTERNAL_API_TOKEN", False)
     internal_api_token: str | None = _env_optional("INTERNAL_API_TOKEN")
     internal_api_token_header: str = _env_str("INTERNAL_API_TOKEN_HEADER", "X-Internal-Service-Token")

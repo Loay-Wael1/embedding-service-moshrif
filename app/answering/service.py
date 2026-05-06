@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import time
 from typing import Any
 
@@ -380,6 +381,7 @@ class LegalAnswerService:
             external_sources=[],
             external_sources_verified_by_system=False,
             concise=concise,
+            detail_level=self.settings.chat_answer_detail_level,
         )
 
         primary_llm, primary_payload, primary_raw = self._call_one_llm(
@@ -829,8 +831,12 @@ def _build_answer_parts(
 ) -> AnswerParts:
     from_payload = _answer_parts_from_payload(payload)
     if from_payload is not None:
-        if mode in {"grounded", "assisted"} and not from_payload.legal_basis:
-            from_payload.legal_basis = _legal_basis_from_sources(internal_sources)
+        if mode in {"grounded", "assisted"}:
+            source_basis = _legal_basis_from_sources(internal_sources)
+            if source_basis:
+                from_payload.legal_basis = source_basis
+            elif not from_payload.legal_basis:
+                from_payload.legal_basis = None
         if mode == "external_assisted":
             from_payload.legal_basis = from_payload.legal_basis if external_sources else None
             from_payload.note = from_payload.note or "هذه إجابة عامة وليست مستندة إلى مصادر داخلية موثقة."
@@ -862,7 +868,7 @@ def _answer_parts_from_payload(payload: dict[str, Any] | None) -> AnswerParts | 
     return AnswerParts(
         intro=_string_value(raw.get("intro")),
         section_title=_normalise_heading(_string_value(raw.get("section_title"))),
-        bullets=clean_bullets[:5],
+        bullets=clean_bullets[:6],
         legal_basis=_string_value(raw.get("legal_basis")),
         note=_string_value(raw.get("note")),
     )
@@ -885,8 +891,8 @@ def _answer_parts_from_final_answer(final_answer: str) -> AnswerParts:
 
     for line in lines[(section_index + 1 if section_index is not None else 1):]:
         normalised = line.rstrip(":").strip()
-        if line.startswith(("-", "•")):
-            bullet = line.lstrip("-• ").strip()
+        if _is_answer_bullet_line(line):
+            bullet = _clean_answer_bullet_line(line)
             if bullet:
                 bullets.append(bullet)
             continue
@@ -907,7 +913,7 @@ def _answer_parts_from_final_answer(final_answer: str) -> AnswerParts:
     return AnswerParts(
         intro=intro or final_answer,
         section_title=section_title,
-        bullets=bullets[:5],
+        bullets=bullets[:6],
         legal_basis=" ".join(legal_basis_lines).strip() or None,
         note=" ".join(note_lines).strip() or None,
     )
@@ -926,6 +932,8 @@ def _looks_like_section_heading(line: str) -> bool:
         "أهم الأحكام",
         "أهم الضمانات",
         "أبرز الحقوق والضمانات",
+        "الخطوات العملية",
+        "ما يمكنك فعله",
         "شرح عام",
     }
 
@@ -937,6 +945,16 @@ def _normalise_heading(value: str | None) -> str | None:
     if not text:
         return None
     return text if text.endswith(":") else f"{text}:"
+
+
+def _is_answer_bullet_line(line: str) -> bool:
+    stripped = line.strip()
+    return stripped.startswith(("-", "•", "*")) or bool(re.match(r"^[0-9٠-٩١٢٣٤٥٦٧٨٩]+[.)-]\s+", stripped))
+
+
+def _clean_answer_bullet_line(line: str) -> str:
+    stripped = line.strip().lstrip("-•* ").strip()
+    return re.sub(r"^[0-9٠-٩١٢٣٤٥٦٧٨٩]+[.)-]\s+", "", stripped).strip()
 
 
 def _legal_basis_from_sources(sources: list[SourceCitation]) -> str | None:

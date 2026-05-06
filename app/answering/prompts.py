@@ -100,7 +100,9 @@ answer_mode = insufficient
 
 
 PUBLIC_CHAT_CONCISE_POLICY = """
-نمط الإخراج العام المختصر لـ /chat:
+نمط الإخراج العام المتوازن لـ /chat:
+- اعتبر CHAT_CONCISE_ANSWERS=true بمعنى "مختصر لكنه كافٍ ومفيد"، وليس إجابة شديدة الاختصار.
+- مستوى التفصيل المطلوب: {detail_level}. إذا لم يكن واضحًا، استخدم balanced.
 - هذه التعليمات تخص final_answer العام فقط، وتتغلب على أي تعليمات سابقة تطلب قسمًا بعنوان "المصادر".
 - لا تضع داخل final_answer قسمًا بعنوان "المصادر" أو "Sources"؛ مصفوفة sources يعرضها التطبيق منفصلة.
 - لا تكتب S1 أو S2 أو source_id أو أرقام مصادر داخل final_answer.
@@ -108,32 +110,37 @@ PUBLIC_CHAT_CONCISE_POLICY = """
 - لا تناقش كل مصدر مسترجع؛ ركز على المصدر أو المواد الأكثر صلة بالسؤال.
 
 لبنود grounded و assisted، يجب أن تكون final_answer بهذا الشكل:
-[مقدمة قصيرة من سطر أو سطرين توضح الفكرة العامة بلغة طبيعية]
+[مقدمة واضحة من جملة واحدة تشرح الفكرة القانونية الأساسية بلغة طبيعية]
 
 أهم الأحكام:
-- نقطة قانونية قصيرة وواضحة.
-- نقطة قانونية قصيرة وواضحة.
-- نقطة قانونية قصيرة وواضحة.
+- نقطة قانونية مفيدة ومحددة.
+- نقطة قانونية مفيدة ومحددة.
+- نقطة قانونية مفيدة ومحددة.
+- نقطة قانونية مفيدة ومحددة عند الحاجة.
 
 السند القانوني:
 استندت الإجابة إلى المادة/المواد (...) من (...).
 
 قواعد الأسلوب لـ grounded و assisted:
-- استخدم عنوانًا أدق عند الحاجة مثل "أهم الضمانات:" أو "أبرز الحقوق والضمانات:" بدل "أهم الأحكام:".
-- اجعل عدد النقاط من 3 إلى 5 غالبًا.
-- كل نقطة يجب أن تكون قصيرة ومباشرة ومريحة للقراءة على الموبايل.
-- العربية يجب أن تكون طبيعية ومطمئنة ومهنية، لا جافة ولا مطولة.
+- استخدم عنوانًا أدق عند الحاجة مثل "أهم الضمانات:" أو "أبرز الحقوق والضمانات:" أو "الخطوات العملية:" بدل "أهم الأحكام:".
+- اجعل الإجابة متوسطة ومفيدة: غالبًا 120 إلى 220 كلمة عربية للأسئلة القانونية العادية.
+- اجعل عدد النقاط من 4 إلى 6 للأسئلة الإجرائية أو أسئلة "ماذا أفعل؟"، ومن 3 إلى 5 للأسئلة البسيطة.
+- كل نقطة يجب أن تكون محددة وعملية عند سؤال المستخدم عن خطوات أو تصرف مطلوب.
+- تجنب النقاط العامة جدًا مثل "راجع القانون" أو "اذهب للمحكمة" دون فائدة عملية مستندة للمصادر.
+- العربية يجب أن تكون طبيعية ومهنية ومريحة للقراءة على الموبايل، لا جافة ولا مطولة.
 - في assisted، إن أضفت شرحًا مساعدًا فاجعله مختصرًا ومفصولًا بوضوح عن السند الداخلي.
 - استخدم "السند القانوني:" فقط، ولا تستخدم "المصادر:" داخل final_answer.
 - إذا كان مصدر واحد هو الأساس الواضح، ركز عليه فقط في السند القانوني.
+- لا تذكر في السند القانوني إلا القوانين أو أرقام المواد الموجودة فعلًا في INTERNAL_SOURCES.
 
 لبند external_assisted، يجب أن تكون final_answer بهذا الشكل:
 [تنبيه قصير أن الموضوع خارج المصادر الداخلية]
 
 شرح عام:
-- نقطة مختصرة.
-- نقطة مختصرة.
-- نقطة مختصرة.
+- نقطة عملية مختصرة.
+- نقطة عملية مختصرة.
+- نقطة عملية مختصرة.
+- نقطة عملية مختصرة عند الحاجة.
 
 ملاحظة:
 هذه إجابة عامة غير موثقة من مصادر التطبيق الداخلية، ويُفضّل مراجعة محامٍ مختص أو النصوص الرسمية.
@@ -142,6 +149,7 @@ PUBLIC_CHAT_CONCISE_POLICY = """
 - لا تدّعِ توثيقًا داخليًا.
 - لا تذكر أرقام مواد إلا إذا كانت هناك مصادر داخلية أو خارجية موثقة ومقدمة فعليًا.
 - اجعل التحذير واضحًا وقصيرًا وغير مخيف.
+- اجعل عدد النقاط من 4 إلى 6 عندما يكون السؤال إجرائيًا، ومن 3 إلى 5 للأسئلة البسيطة.
 - اجعل answer_from_sources = null.
 """.strip()
 
@@ -157,10 +165,11 @@ ANSWER_PARTS_POLICY = """
 }
 
 قواعد answer_parts:
-- في grounded و assisted: intro جملة قصيرة، section_title مثل "أهم الأحكام:" أو "أهم الضمانات:"، bullets من 3 إلى 5 نقاط، legal_basis جملة قصيرة تذكر فقط المواد المسترجعة، note = null.
-- في external_assisted: intro توضح أن الإجابة عامة وخارج المصادر الداخلية، section_title = "شرح عام:"، bullets من 3 إلى 5، legal_basis = null، note = "هذه إجابة عامة وليست مستندة إلى مصادر داخلية موثقة."
+- في grounded و assisted: intro جملة قصيرة، section_title مثل "أهم الأحكام:" أو "أهم الضمانات:" أو "الخطوات العملية:"، bullets من 4 إلى 6 للأسئلة الإجرائية ومن 3 إلى 5 للأسئلة البسيطة، legal_basis جملة قصيرة تذكر فقط المواد المسترجعة، note = null.
+- في external_assisted: intro توضح أن الإجابة عامة وخارج المصادر الداخلية، section_title = "شرح عام:"، bullets من 4 إلى 6 للأسئلة الإجرائية ومن 3 إلى 5 للأسئلة البسيطة، legal_basis = null، note = "هذه إجابة عامة وليست مستندة إلى مصادر داخلية موثقة."
 - في identity أو conversation أو non_legal أو insufficient: intro = final_answer، bullets = []، legal_basis = null، note = null.
 - لا تضع أي source_id مثل S1 أو S2 داخل answer_parts.
+- يجب أن يكون answer_parts متوافقًا مع final_answer: نفس المقدمة والفكرة والنقاط والسند القانوني.
 """.strip()
 
 
@@ -175,6 +184,7 @@ def build_answer_messages(
     external_sources: list[dict[str, Any]],
     external_sources_verified_by_system: bool,
     concise: bool = False,
+    detail_level: str = "balanced",
 ) -> list[dict[str, str]]:
     user_payload = {
         "query": query,
@@ -185,8 +195,10 @@ def build_answer_messages(
         "internal_sources": internal_sources,
         "external_sources": external_sources,
         "external_sources_verified_by_system": external_sources_verified_by_system,
+        "answer_detail_level": detail_level,
     }
-    concise_policy = f"\n\n{PUBLIC_CHAT_CONCISE_POLICY}" if concise else ""
+    safe_detail_level = detail_level if detail_level in {"concise", "balanced", "detailed"} else "balanced"
+    concise_policy = f"\n\n{PUBLIC_CHAT_CONCISE_POLICY.format(detail_level=safe_detail_level)}" if concise else ""
     user_message = (
         "Return ONLY a valid JSON object with keys: answer_from_sources, final_answer, answer_parts, warning.\n"
         "Do not use markdown fences. Do not write ```json.\n"

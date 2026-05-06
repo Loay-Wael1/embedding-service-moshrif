@@ -578,8 +578,10 @@ def test_chat_endpoint_constitutional_legal_question_routes_to_retrieval(app_cli
     assert response.headers["X-LLM-Called"] == "true"
     assert captured["max_tokens"] <= 1536
     prompt_text = "\n".join(message["content"] for message in captured["messages"])
-    assert "نمط الإخراج العام المختصر لـ /chat" in prompt_text
+    assert "نمط الإخراج العام المتوازن لـ /chat" in prompt_text
+    assert "مختصر لكنه كافٍ ومفيد" in prompt_text
     assert "answer_parts" in prompt_text
+    assert "4 إلى 6" in prompt_text
     assert "لا تضع داخل final_answer قسمًا بعنوان \"المصادر\"" in prompt_text
 
 
