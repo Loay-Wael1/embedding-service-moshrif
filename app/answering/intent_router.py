@@ -111,8 +111,15 @@ def route_intent(query: str, explicit_domain: str | None = None) -> IntentDecisi
         )
 
     domain_scores = _score_domains(norm)
+    scenario_domain_scores = _score_scenario_domains(norm)
+    for domain, score in scenario_domain_scores.items():
+        domain_scores[domain] = round(domain_scores.get(domain, 0.0) + score, 4)
     suggested_domain, best_domain_score = _pick_domain(domain_scores, explicit_domain)
     legal_score, legal_reasons = _legal_likelihood(norm, best_domain_score)
+    scenario_score, scenario_reasons = _legal_scenario_likelihood(norm)
+    if scenario_score:
+        legal_score = min(1.0, legal_score + scenario_score)
+        legal_reasons.extend(scenario_reasons)
 
     if legal_score >= 0.45:
         return IntentDecision(
@@ -277,6 +284,22 @@ def _score_domains(norm: str) -> dict[str, float]:
             if _contains_phrase(norm, phrase):
                 score += 2.5
         scores[domain] = round(score, 4)
+    return scores
+
+
+def _legal_scenario_likelihood(norm: str) -> tuple[float, list[str]]:
+    hits = [phrase for phrase in _LEGAL_SCENARIO_PHRASES if _contains_phrase(norm, phrase)]
+    if not hits:
+        return 0.0, []
+    return min(0.42, 0.18 + 0.08 * min(len(hits), 3)), ["legal_life_scenario_terms"]
+
+
+def _score_scenario_domains(norm: str) -> dict[str, float]:
+    scores = {domain: 0.0 for domain in VALID_INTERNAL_DOMAINS}
+    for domain, phrases in _DOMAIN_SCENARIO_PHRASES.items():
+        hits = sum(1 for phrase in phrases if _contains_phrase(norm, phrase))
+        if hits:
+            scores[domain] += min(5.0, 1.75 + hits)
     return scores
 
 
@@ -494,6 +517,73 @@ _STRONG_SOURCE_PHRASES = tuple(_n(value) for value in (
     "قانون العقوبات المصري",
     "قانون العقوبات",
 ))
+
+_DOMAIN_SCENARIO_PHRASES = {
+    "civil_law": tuple(_n(value) for value in (
+        "\u0623\u0642\u0631\u0636\u062a",
+        "\u0627\u0642\u0631\u0636\u062a",
+        "\u0642\u0631\u0636",
+        "\u062f\u064a\u0646",
+        "\u0645\u0628\u0644\u063a",
+        "\u0645\u0628\u0644\u063a \u0645\u0646 \u0627\u0644\u0645\u0627\u0644",
+        "\u0644\u0645 \u064a\u0631\u062f",
+        "\u0644\u0645 \u064a\u0642\u0645 \u0628\u0631\u062f\u0647",
+        "\u0631\u062f \u0627\u0644\u0645\u0627\u0644",
+        "\u0627\u0633\u062a\u0631\u062f\u0627\u062f \u0627\u0644\u0645\u0627\u0644",
+        "\u0627\u0633\u062a\u0631\u062f\u0627\u062f \u0623\u0645\u0648\u0627\u0644\u064a",
+        "\u0627\u0633\u062a\u0631\u062f\u0627\u062f \u0627\u0645\u0648\u0627\u0644\u064a",
+        "\u0625\u064a\u0635\u0627\u0644 \u0623\u0645\u0627\u0646\u0629",
+        "\u0627\u064a\u0635\u0627\u0644 \u0627\u0645\u0627\u0646\u0629",
+        "\u0634\u064a\u0643",
+        "\u0643\u0645\u0628\u064a\u0627\u0644\u0629",
+        "\u0645\u0637\u0627\u0644\u0628\u0629 \u0628\u0627\u0644\u062f\u064a\u0646",
+        "\u0625\u062b\u0628\u0627\u062a \u0627\u0644\u062f\u064a\u0646",
+        "\u0627\u062b\u0628\u0627\u062a \u0627\u0644\u062f\u064a\u0646",
+        "\u0625\u0646\u0630\u0627\u0631 \u0628\u0627\u0644\u0633\u062f\u0627\u062f",
+        "\u0627\u0646\u0630\u0627\u0631 \u0628\u0627\u0644\u0633\u062f\u0627\u062f",
+    )),
+    "labor_law": tuple(_n(value) for value in (
+        "\u0635\u0627\u062d\u0628 \u0627\u0644\u0639\u0645\u0644",
+        "\u0623\u062c\u0631\u064a",
+        "\u0627\u062c\u0631\u064a",
+        "\u0644\u0645 \u064a\u062f\u0641\u0639 \u0623\u062c\u0631\u064a",
+        "\u0644\u0645 \u064a\u062f\u0641\u0639 \u0627\u062c\u0631\u064a",
+        "\u0641\u0635\u0644",
+        "\u0639\u0627\u0645\u0644",
+        "\u0625\u062c\u0627\u0632\u0629",
+        "\u0627\u062c\u0627\u0632\u0629",
+        "\u0633\u0627\u0639\u0627\u062a \u0627\u0644\u0639\u0645\u0644",
+    )),
+    "criminal_law": tuple(_n(value) for value in (
+        "\u0646\u0635\u0628",
+        "\u0646\u0635\u0628 \u0639\u0644\u064a\u0627",
+        "\u0623\u062e\u0630 \u0641\u0644\u0648\u0633\u064a",
+        "\u0627\u062e\u0630 \u0641\u0644\u0648\u0633\u064a",
+        "\u0623\u0639\u0645\u0644 \u0628\u0644\u0627\u063a",
+        "\u0627\u0639\u0645\u0644 \u0628\u0644\u0627\u063a",
+        "\u0628\u0644\u0627\u063a",
+        "\u0633\u0631\u0642\u0629",
+        "\u062a\u0639\u062f\u064a",
+        "\u062c\u0646\u062d\u0629",
+        "\u0625\u064a\u0635\u0627\u0644 \u0623\u0645\u0627\u0646\u0629",
+        "\u0627\u064a\u0635\u0627\u0644 \u0627\u0645\u0627\u0646\u0629",
+    )),
+    "constitutional_law": tuple(_n(value) for value in (
+        "\u0636\u0645\u0627\u0646\u0627\u062a \u0627\u0644\u062d\u0631\u064a\u0629",
+        "\u0627\u0644\u062d\u0631\u064a\u0629 \u0627\u0644\u0634\u062e\u0635\u064a\u0629",
+        "\u062d\u0631\u064a\u0629 \u0627\u0644\u0631\u0623\u064a",
+        "\u062d\u0631\u064a\u0629 \u0627\u0644\u0631\u0627\u064a",
+        "\u0639\u062f\u0645 \u0627\u0644\u062a\u0645\u064a\u064a\u0632",
+        "\u062d\u0642\u0648\u0642",
+        "\u062d\u0631\u064a\u0627\u062a",
+    )),
+}
+
+_LEGAL_SCENARIO_PHRASES = tuple(
+    phrase
+    for phrases in _DOMAIN_SCENARIO_PHRASES.values()
+    for phrase in phrases
+)
 
 _DOMAIN_PROFILES = {
     "constitutional_law": (

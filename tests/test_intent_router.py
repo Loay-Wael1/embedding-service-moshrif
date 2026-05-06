@@ -103,6 +103,22 @@ def test_router_legal_retrieval_domains(query, domain):
 
 
 @pytest.mark.parametrize(
+    ("query", "domain"),
+    [
+        ("إذا أقرضت شخصًا مبلغًا من المال ولم يقم برده، ما هي الخطوات القانونية لاسترداد أموالي؟", "civil_law"),
+        ("شخص نصب عليا وأخذ فلوسي أعمل بلاغ إزاي؟", "criminal_law"),
+        ("صاحب العمل لم يدفع أجري ماذا أفعل؟", "labor_law"),
+        ("ما ضمانات الحرية الشخصية؟", "constitutional_law"),
+    ],
+)
+def test_router_detects_legal_life_scenarios_without_explicit_domain(query, domain):
+    d = route_intent(query)
+    assert d.intent == IntentType.LEGAL_RETRIEVAL
+    assert d.is_legal_question is True
+    assert d.suggested_domain == domain
+
+
+@pytest.mark.parametrize(
     "query",
     [
         "ما أحكام الحضانة؟",
@@ -269,6 +285,52 @@ class TestServiceConversation:
         assert resp.llm.called is True
         assert retriever.calls >= 1
 
+    def test_legal_scenario_retries_broad_retrieval_when_domain_filter_is_weak(self):
+        from app.answering import LegalAnswerService
+        from app.llm import LLMCompletion
+
+        class GroundedLLM:
+            model = "gemini-2.5-flash"
+            provider_name = "gemini"
+            web_search_enabled = False
+
+            def chat_completion(self, *, messages, temperature=0.0, max_tokens=None):
+                return LLMCompletion(
+                    content=json.dumps(
+                        {
+                            "answer_from_sources": "يمكن الاستناد إلى قواعد الإثبات والمطالبة القضائية بالدين.",
+                            "final_answer": (
+                                "يمكنك البدء بإثبات الدين ومطالبة المدين بالسداد ثم اللجوء للقضاء عند الامتناع.\n\n"
+                                "أهم الأحكام:\n"
+                                "- جهز ما يثبت القرض أو الدين مثل إيصال أو مراسلات أو شهود.\n"
+                                "- أرسل مطالبة أو إنذارًا بالسداد قبل رفع الدعوى عند الحاجة.\n"
+                                "- إذا لم يتم السداد، يمكن رفع دعوى للمطالبة بالمبلغ.\n\n"
+                                "السند القانوني:\n"
+                                "استندت الإجابة إلى مواد القانون المدني المصري المتاحة في المصادر الداخلية."
+                            ),
+                            "warning": None,
+                        },
+                        ensure_ascii=False,
+                    ),
+                    model=self.model,
+                    provider=self.provider_name,
+                    usage={"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30},
+                    raw_response=None,
+                )
+
+        retriever = _BroadRetryRetriever()
+        svc = LegalAnswerService(retriever=retriever, llm_client=GroundedLLM())
+        resp = svc.answer("إذا أقرضت شخصًا مبلغًا من المال ولم يقم برده، ما هي الخطوات القانونية لاسترداد أموالي؟")
+
+        assert resp.is_legal_question is True
+        assert resp.answer_mode == "grounded"
+        assert resp.retrieval_summary.domain == "civil_law"
+        assert resp.internal_sources
+        assert retriever.calls == 2
+        assert retriever.filters_seen[0] is not None
+        assert getattr(retriever.filters_seen[0], "legal_domain", None) == "civil_law"
+        assert retriever.filters_seen[1] is None
+
 
 # ---------------------------------------------------------------------------
 # Source sufficiency overlap guard
@@ -308,6 +370,24 @@ class _FakeRetriever:
         return self.result | {"query": query}
 
 
+class _BroadRetryRetriever:
+    def __init__(self) -> None:
+        self.calls = 0
+        self.filters_seen = []
+
+    def search(self, query: str, *, top_k=None, filters=None):
+        self.calls += 1
+        self.filters_seen.append(filters)
+        if self.calls == 1:
+            return {
+                "query": query,
+                "normalized_query": query,
+                "query_analysis": {"out_of_domain": False, "suggested_domain": "civil_law"},
+                "results": [],
+            }
+        return _civil_debt_retrieval_result(query)
+
+
 def _grounded_retrieval_result() -> dict:
     return {
         "normalized_query": "ما هي احكام عقد العمل الفردي",
@@ -331,6 +411,54 @@ def _grounded_retrieval_result() -> dict:
                 "source_url": "https://example.com/labor/2",
                 "summary": "تعريف العامل وصاحب العمل وعقد العمل.",
                 "content": "تتضمن المادة تعريفات مرتبطة بالعامل وصاحب العمل وعلاقة العمل.",
+                "rank_explanation": ["strong_title_overlap"],
+            },
+        ],
+    }
+
+
+def _civil_debt_retrieval_result(query: str) -> dict:
+    return {
+        "query": query,
+        "normalized_query": query,
+        "query_analysis": {"out_of_domain": False, "suggested_domain": "civil_law"},
+        "results": [
+            {
+                "id": "civil-debt-1",
+                "rerank_score": 0.93,
+                "score": 0.86,
+                "law_name": "القانون المدني المصري",
+                "law_number": "131",
+                "law_year": "1948",
+                "article_number": "1",
+                "title": "إثبات الالتزام والمطالبة بالدين",
+                "legal_domain": "civil_law",
+                "section_level": "الالتزامات",
+                "source_url": "https://example.com/civil/debt-1",
+                "summary": "قواعد مدنية عن الالتزام والدين والمطالبة بالمال المستحق.",
+                "content": (
+                    "إذا أقرض الدائن شخصًا مبلغًا من المال ولم يرده المدين، "
+                    "يجوز إثبات الدين والمطالبة برد المال ورفع دعوى مدنية لاسترداد المبلغ."
+                ),
+                "rank_explanation": ["strong_summary_overlap"],
+            },
+            {
+                "id": "civil-debt-2",
+                "rerank_score": 0.88,
+                "score": 0.81,
+                "law_name": "القانون المدني المصري",
+                "law_number": "131",
+                "law_year": "1948",
+                "article_number": "2",
+                "title": "المطالبة القضائية بالالتزام",
+                "legal_domain": "civil_law",
+                "section_level": "الالتزامات",
+                "source_url": "https://example.com/civil/debt-2",
+                "summary": "إجراءات مطالبة المدين بتنفيذ الالتزام أو رد المال.",
+                "content": (
+                    "للدائن عند عدم سداد الدين أن يطالب المدين بالوفاء، "
+                    "وأن يلجأ إلى المحكمة لإثبات الالتزام واسترداد أمواله."
+                ),
                 "rank_explanation": ["strong_title_overlap"],
             },
         ],

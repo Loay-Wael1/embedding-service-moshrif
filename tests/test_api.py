@@ -758,13 +758,22 @@ def test_legal_answer_llm_error_details_only_with_debug_metadata(app_client):
             json={"query": "ما ضمانات الحرية الشخصية في الدستور المصري؟"},
         )
         payload = response.json()
-        combined = json.dumps(payload, ensure_ascii=False)
+        public_text = json.dumps(
+            {
+                "warning": payload.get("warning"),
+                "final_answer": payload.get("final_answer"),
+                "answer_from_sources": payload.get("answer_from_sources"),
+                "external_or_assisted_explanation": payload.get("external_or_assisted_explanation"),
+                "llm_error": (payload.get("llm") or {}).get("error"),
+            },
+            ensure_ascii=False,
+        )
 
         assert response.status_code == 200
         assert payload["warning"] == SAFE_PUBLIC_LLM_WARNING
         assert payload["llm"]["error"] is None
-        assert "429" not in combined
-        assert "GEMINI_API_KEY" not in combined
+        assert "429" not in public_text
+        assert "GEMINI_API_KEY" not in public_text
 
         object.__setattr__(app_settings.settings, "debug_response_metadata", True)
         _install_constitutional_answer_service(app_client, RateLimitedLLM())

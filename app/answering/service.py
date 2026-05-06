@@ -134,6 +134,20 @@ class LegalAnswerService:
             explicit_domain=domain_hint,
             has_legal_intent=intent.is_legal_question,
         )
+        if _should_retry_broad_retrieval(retrieval_filters, decision):
+            broad_filters = _broad_retrieval_filters(retrieval_filters)
+            broad_retrieval_result = self.retriever.search(query, top_k=top_k_used, filters=broad_filters)
+            broad_decision = assess_source_sufficiency(
+                broad_retrieval_result,
+                config=self.settings,
+                top_k=top_k_used,
+                explicit_domain=domain_hint,
+                has_legal_intent=intent.is_legal_question,
+            )
+            if _broad_decision_is_better(decision, broad_decision):
+                retrieval_result = broad_retrieval_result
+                decision = broad_decision
+                decision.reasons.append("broad_retrieval_retry_used")
         t_retrieval = time.perf_counter()
 
         internal_sources = [source.citation for source in decision.sources if decision.answer_mode in {"grounded", "assisted"}]
@@ -723,6 +737,55 @@ def _effective_retrieval_filters(
         law_year=law_year,
         status_normalized=status_normalized,
         exclude_repealed=exclude_repealed,
+    )
+
+
+def _should_retry_broad_retrieval(
+    filters: RetrievalFilters | None,
+    decision: Any,
+) -> bool:
+    if not filters or not getattr(filters, "legal_domain", None):
+        return False
+    if decision.answer_mode in {"grounded", "assisted"}:
+        return False
+    metrics = getattr(decision, "metrics", {}) or {}
+    return (
+        metrics.get("usable_source_count", 0) == 0
+        or metrics.get("partial_source_count", 0) == 0
+        or decision.answer_mode == "insufficient"
+    )
+
+
+def _broad_retrieval_filters(filters: RetrievalFilters | None) -> RetrievalFilters | None:
+    if not filters:
+        return None
+    if not any((
+        filters.law_number,
+        filters.law_year,
+        filters.status_normalized,
+        filters.exclude_repealed,
+    )):
+        return None
+    return RetrievalFilters(
+        legal_domain=None,
+        law_number=filters.law_number,
+        law_year=filters.law_year,
+        status_normalized=filters.status_normalized,
+        exclude_repealed=filters.exclude_repealed,
+    )
+
+
+def _broad_decision_is_better(current: Any, broad: Any) -> bool:
+    rank = {"insufficient": 0, "external_assisted": 1, "assisted": 2, "grounded": 3}
+    current_rank = rank.get(current.answer_mode, 0)
+    broad_rank = rank.get(broad.answer_mode, 0)
+    if broad_rank > current_rank:
+        return True
+    current_metrics = getattr(current, "metrics", {}) or {}
+    broad_metrics = getattr(broad, "metrics", {}) or {}
+    return (
+        broad_rank == current_rank
+        and broad_metrics.get("partial_source_count", 0) > current_metrics.get("partial_source_count", 0)
     )
 
 
