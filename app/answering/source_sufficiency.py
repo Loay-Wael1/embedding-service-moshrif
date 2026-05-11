@@ -199,7 +199,14 @@ def _is_egyptian_law_question_outside_internal_corpus(
     if retrieval_out_of_scope and _contains_any(query_norm, OUT_OF_INTERNAL_CORPUS_LEGAL_CUES):
         return True
 
-    if not evaluated_sources and _contains_any(query_norm, GENERAL_EGYPTIAN_LEGAL_CUES):
+    # For zero-source results, require BOTH a general legal cue AND a
+    # concrete scenario cue to avoid promoting vague queries like
+    # "فيه مشكلة قانونية" or "محتاج مساعدة قانونية".
+    if (
+        not evaluated_sources
+        and _contains_any(query_norm, GENERAL_EGYPTIAN_LEGAL_CUES)
+        and _contains_any(query_norm, _LEGAL_SCENARIO_CUES)
+    ):
         return True
 
     return False
@@ -492,19 +499,18 @@ def _is_confident_out_of_internal_corpus(query: str) -> bool:
 _LEGAL_SCENARIO_CUES = tuple(
     normalize_legal_arabic(v)
     for v in (
-        # Criminal scenarios
+        # Criminal scenarios — specific verbs / nouns
         "سرق", "سرقه", "سرقة", "نصب", "نصبوا", "ضرب", "ضربني", "هدد", "هددني",
         "تهديد", "قتل", "تزوير", "رشوة", "خطف", "اعتداء", "بلاغ", "محضر",
-        # Labor / civil scenarios
+        "اتضربت", "اتسرق", "اتنصب",
+        # Labor / civil scenarios — concrete situation words
         "مرتب", "مرتبي", "فصل", "فصلوني", "فصلني", "شغل", "الشغل",
         "عقد", "ايجار", "إيجار", "بيع", "شراء",
         "ايصال", "إيصال", "شيك", "دين", "ديون",
-        # Procedural
-        "ابلغ", "اشتكي", "اعمل", "ارفع", "دعوى", "قضيه", "قضية",
-        "محامي", "محكمه", "محكمة", "نيابه", "نيابة", "شرطه", "شرطة",
-        # Legal concepts
-        "عقوبه", "عقوبة", "حكم", "حقوق", "قانون", "القانون",
-        "تعويض", "غرامه", "غرامة", "حبس", "سجن",
+        # Procedural — specific actions
+        "ابلغ", "اشتكي", "ارفع",
+        # Legal concepts — specific enough
+        "عقوبه", "عقوبة", "تعويض", "غرامه", "غرامة", "حبس", "سجن",
     )
 )
 
@@ -515,9 +521,9 @@ def _is_understandable_legal_question(query: str, *, has_legal_intent: bool = Tr
     """Return True if *query* looks like an understandable legal question
     that deserves an external_assisted answer instead of 'insufficient'.
 
-    Designed to be conservative: only upgrades when there is a reasonable
-    signal that the user is asking something legal and specific enough to
-    receive useful general guidance.
+    Requires a concrete legal scenario cue — ``has_legal_intent`` alone is
+    not enough because many vague queries get classified as legal by the
+    router without containing a real-world scenario.
     """
     query_norm = normalize_legal_arabic(query)
     words = query_norm.split()
@@ -526,8 +532,6 @@ def _is_understandable_legal_question(query: str, *, has_legal_intent: bool = Tr
     if len(words) < _MIN_UNDERSTANDABLE_WORDS:
         return False
 
-    # Must have legal intent from router or contain a legal scenario cue
-    if has_legal_intent:
-        return True
-
+    # Must contain a concrete scenario cue regardless of intent
     return _contains_any(query_norm, _LEGAL_SCENARIO_CUES)
+

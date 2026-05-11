@@ -150,7 +150,7 @@ class TestAmbiguousGoesToRetrieval:
 class TestUnderstandableLegalQuestionHeuristic:
     """Test _is_understandable_legal_question directly."""
 
-    def test_long_legal_query_with_intent_is_understandable(self):
+    def test_scenario_with_intent_is_understandable(self):
         from app.answering.source_sufficiency import _is_understandable_legal_question
         assert _is_understandable_legal_question("اعمل ايه لو حد سرق مني الموبايل", has_legal_intent=True) is True
 
@@ -173,6 +173,14 @@ class TestUnderstandableLegalQuestionHeuristic:
     def test_scenario_theft_is_understandable(self):
         from app.answering.source_sufficiency import _is_understandable_legal_question
         assert _is_understandable_legal_question("حد سرق مني موبايل اعمل ايه", has_legal_intent=True) is True
+
+    def test_vague_legal_without_scenario_cue_is_not_understandable(self):
+        """Legal intent alone is NOT enough — must have a concrete scenario cue."""
+        from app.answering.source_sufficiency import _is_understandable_legal_question
+        assert _is_understandable_legal_question("فيه مشكلة قانونية", has_legal_intent=True) is False
+        assert _is_understandable_legal_question("عندي قضية اعمل ايه", has_legal_intent=True) is False
+        assert _is_understandable_legal_question("محتاج مساعدة قانونية", has_legal_intent=True) is False
+        assert _is_understandable_legal_question("ممكن اعرف حقي", has_legal_intent=True) is False
 
 
 # ---------------------------------------------------------------------------
@@ -235,6 +243,10 @@ class TestInsufficientStillInsufficient:
     @pytest.mark.parametrize("query", [
         "ما هي؟",
         "؟؟؟",
+        "فيه مشكلة قانونية",
+        "عندي قضية اعمل ايه",
+        "محتاج مساعدة قانونية",
+        "ممكن اعرف حقي",
     ])
     def test_vague_query_stays_insufficient(self, query):
         service, _ = _make_empty_retriever_service()
