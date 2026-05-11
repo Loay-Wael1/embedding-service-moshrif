@@ -31,6 +31,13 @@ class TestTaaMarbutaNormalization:
         colloquial = route_intent("ما عقوبه السرقه")
         assert formal.intent == colloquial.intent
 
+    def test_no_over_normalization_of_natural_haa(self):
+        from app.answering.intent_router import _normalize_for_routing
+        assert _normalize_for_routing("فيه مشكلة قانونية") == "فيه مشكله قانونيه"
+        assert _normalize_for_routing("عليه حكم") == "عليه حكم"
+        assert _normalize_for_routing("ايه عقوبة السرقة") == "ايه عقوبه السرقه"
+        assert _normalize_for_routing("الله") == "الله"
+
 
 # ---------------------------------------------------------------------------
 # Router unit tests — colloquial / scenario queries

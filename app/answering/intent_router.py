@@ -160,8 +160,7 @@ def route_intent(query: str, explicit_domain: str | None = None) -> IntentDecisi
 def _normalize_for_routing(query: str) -> str:
     text = normalize_legal_arabic(query or "").lower()
     text = re.sub(r"[؟?،؛:,.!()\[\]{}<>\"'`~@#$%^&*_+=|\\\/]", " ", text)
-    # Normalize word-final ه to ة (colloquial taa-marbuta variants)
-    text = re.sub(r"ه(?=\s|$)", "ة", text)
+    text = text.replace("ة", "ه")
     text = re.sub(r"\s+", " ", text).strip()
     return text
 
