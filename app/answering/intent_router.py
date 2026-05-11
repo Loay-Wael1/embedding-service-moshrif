@@ -159,7 +159,9 @@ def route_intent(query: str, explicit_domain: str | None = None) -> IntentDecisi
 
 def _normalize_for_routing(query: str) -> str:
     text = normalize_legal_arabic(query or "").lower()
-    text = re.sub(r"[؟?،؛:,.!()\[\]{}<>\"'`~@#$%^&*_+=|\\/]", " ", text)
+    text = re.sub(r"[؟?،؛:,.!()\[\]{}<>\"'`~@#$%^&*_+=|\\\/]", " ", text)
+    # Normalize word-final ه to ة (colloquial taa-marbuta variants)
+    text = re.sub(r"ه(?=\s|$)", "ة", text)
     text = re.sub(r"\s+", " ", text).strip()
     return text
 
@@ -269,7 +271,7 @@ def _question_pattern_score(norm: str) -> float:
     if _has_any_phrase(norm, _LEGAL_QUESTION_PATTERNS):
         return 0.24
     first = norm.split()[0] if norm.split() else ""
-    if first in {"ما", "ماذا", "متى", "كيف", "هل"}:
+    if first in {"ما", "ماذا", "متى", "كيف", "هل", "ايه"}:
         return 0.12
     return 0.0
 
@@ -506,6 +508,10 @@ _LEGAL_QUESTION_PATTERNS = tuple(_n(value) for value in (
     "ماذا ينص",
     "ما المقصود",
     "ما الفرق بين",
+    "عايز اعرف",
+    "محتاج اعرف",
+    "ايه عقوبة",
+    "ايه حكم",
 ))
 
 _STRONG_SOURCE_PHRASES = tuple(_n(value) for value in (
@@ -567,6 +573,14 @@ _DOMAIN_SCENARIO_PHRASES = {
         "\u062c\u0646\u062d\u0629",
         "\u0625\u064a\u0635\u0627\u0644 \u0623\u0645\u0627\u0646\u0629",
         "\u0627\u064a\u0635\u0627\u0644 \u0627\u0645\u0627\u0646\u0629",
+        "سرق",
+        "سرقني",
+        "اتسرق",
+        "ضرب",
+        "ضربني",
+        "اتضرب",
+        "هدد",
+        "هددني",
     )),
     "constitutional_law": tuple(_n(value) for value in (
         "\u0636\u0645\u0627\u0646\u0627\u062a \u0627\u0644\u062d\u0631\u064a\u0629",

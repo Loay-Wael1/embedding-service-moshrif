@@ -57,8 +57,6 @@ NON_LEGAL_ANSWER = (
     "من فضلك اكتب سؤالًا قانونيًا لأتمكن من مساعدتك."
 )
 
-AMBIGUOUS_ANSWER = "من فضلك وضّح سؤالك القانوني أو اذكر المجال القانوني المطلوب."
-
 
 class LegalAnswerService:
     def __init__(
@@ -121,8 +119,8 @@ class LegalAnswerService:
                 t_intent=t_intent,
             )
 
-        if intent.intent == IntentType.AMBIGUOUS:
-            return _ambiguous_response(query, intent, t_start, t_intent)
+        # AMBIGUOUS queries proceed to retrieval — the source sufficiency
+        # layer decides whether the answer is grounded, assisted, or insufficient.
 
         # --- Legal retrieval path ---
         retrieval_filters = _effective_retrieval_filters(filters, suggested_domain=intent.suggested_domain)
@@ -664,45 +662,6 @@ def _non_legal_response(query: str, intent: Any, t_start: float, t_intent: float
         router=_router_metadata(intent),
     )
 
-
-def _ambiguous_response(query: str, intent: Any, t_start: float, t_intent: float) -> LegalAnswerResponse:
-    """Fast-path for ambiguous queries that need clarification (no LLM, no Qdrant)."""
-    t_total = time.perf_counter()
-    empty_summary = RetrievalSummary(
-        domain=None, law=None, top_k_used=0, result_count=0,
-        source_count=0, internal_source_count=0, external_source_count=0,
-        sufficiency_reasons=["ambiguous_routed_without_retrieval"],
-        sufficiency_metrics={"shortcircuit": True},
-    )
-    return LegalAnswerResponse(
-        query=query,
-        answer_mode="insufficient",
-        is_out_of_internal_corpus=False,
-        internal_grounding_sufficient=False,
-        final_answer="من فضلك وضّح سؤالك القانوني أو اذكر المجال القانوني المطلوب.",
-        answer_parts=_simple_answer_parts("من فضلك وضّح سؤالك القانوني أو اذكر المجال القانوني المطلوب."),
-        answer_from_sources=None,
-        external_or_assisted_explanation=None,
-        warning=None,
-        internal_sources=[],
-        external_sources=[],
-        external_sources_verified_by_system=False,
-        retrieval_summary=empty_summary,
-        llm=LLMCallMetadata(called=False, succeeded=False),
-        is_out_of_domain=False,
-        grounding_sufficient=False,
-        assisted_explanation=None,
-        sources=[],
-        is_legal_question=intent.is_legal_question,
-        is_supported_by_internal_sources=False,
-        timing=TimingMetadata(
-            intent_ms=(t_intent - t_start) * 1000,
-            retrieval_ms=0,
-            llm_ms=0,
-            total_ms=(t_total - t_start) * 1000,
-        ),
-        router=_router_metadata(intent),
-    )
 
 
 def _router_metadata(intent: IntentDecision) -> RouterMetadata:

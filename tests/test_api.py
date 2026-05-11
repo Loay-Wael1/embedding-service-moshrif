@@ -355,13 +355,39 @@ def test_chat_endpoint_non_legal_intent(app_client):
     assert "retrieval_summary" not in payload
 
 
-def test_chat_endpoint_ambiguous_intent(app_client):
+def test_chat_endpoint_ambiguous_intent_proceeds_to_retrieval(app_client):
+    """Ambiguous queries must proceed to retrieval, not return a clarification block."""
+    from app.answering import LegalAnswerService
+    from unittest.mock import MagicMock
+
+    mock_retriever = MagicMock()
+    mock_retriever.search.return_value = {
+        "query": "ما هي",
+        "normalized_query": "ما هي",
+        "rewritten_query": "ما هي",
+        "query_analysis": {},
+        "results": [],
+    }
+    mock_llm = MagicMock()
+    mock_llm.provider_name = "test"
+    mock_llm.model = "test"
+    mock_llm.web_search_enabled = False
+    mock_llm.chat_completion.side_effect = Exception("no key")
+
+    app_client.app.state.chat_cache.clear()
+    app_client.app.state.legal_answer_service = LegalAnswerService(
+        retriever=mock_retriever,
+        llm_client=mock_llm,
+    )
+
     response = app_client.post("/chat", json={"query": "ما هي؟"})
     payload = response.json()
     assert response.status_code == 200
-    assert payload["answer_mode"] == "insufficient"
-    assert payload["llm"]["called"] is False
-    assert "retrieval_summary" not in payload
+    # Must NOT return the old blocking message
+    assert payload["final_answer"] != "من فضلك وضّح سؤالك القانوني أو اذكر المجال القانوني المطلوب."
+    # Retriever must have been called
+    mock_retriever.search.assert_called()
+
 
 
 def test_chat_endpoint_external_assisted_intent(app_client):
