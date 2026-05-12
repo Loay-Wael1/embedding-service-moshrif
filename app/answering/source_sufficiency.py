@@ -109,8 +109,18 @@ def assess_source_sufficiency(
         or explicit_legal_source_signal
     )
 
+    # Safety guard: greetings / non-legal / vague queries must never become
+    # grounded or assisted just because Qdrant returned random results.
+    legal_grounding_allowed = _has_enough_legal_signal_for_internal_grounding(
+        query=query,
+        query_analysis=query_analysis,
+        has_legal_intent=has_legal_intent,
+        explicit_legal_source_signal=explicit_legal_source_signal,
+    )
+
     can_ground = (
-        not retrieval_out_of_scope
+        legal_grounding_allowed
+        and not retrieval_out_of_scope
         and not conflict_detected
         and domain_clear
         and law_clear
@@ -119,7 +129,8 @@ def assess_source_sufficiency(
         and has_overlap_signal
     )
     can_assist = (
-        not retrieval_out_of_scope
+        legal_grounding_allowed
+        and not retrieval_out_of_scope
         and not conflict_detected
         and len(partial_sources) >= active.legal_answer_assisted_min_sources
     )
@@ -534,4 +545,37 @@ def _is_understandable_legal_question(query: str, *, has_legal_intent: bool = Tr
 
     # Must contain a concrete scenario cue regardless of intent
     return _contains_any(query_norm, _LEGAL_SCENARIO_CUES)
+
+
+def _has_enough_legal_signal_for_internal_grounding(
+    *,
+    query: str,
+    query_analysis: dict[str, Any],
+    has_legal_intent: bool,
+    explicit_legal_source_signal: bool,
+) -> bool:
+    """Safety guard: only allow grounded/assisted mode if the query carries
+    at least one meaningful legal signal.
+
+    This prevents greetings, thanks, vague phrases, and other non-legal input
+    from being matched to random Qdrant results and returned as grounded
+    legal answers.
+    """
+    if has_legal_intent:
+        return True
+    if explicit_legal_source_signal:
+        return True
+    # Query analysis may carry domain hints or legal keyword signals
+    if query_analysis.get("suggested_domain"):
+        return True
+    if query_analysis.get("legal_keywords"):
+        return True
+    # Concrete scenario cue in the query text
+    query_norm = normalize_legal_arabic(query)
+    if _contains_any(query_norm, _LEGAL_SCENARIO_CUES):
+        return True
+    if _contains_any(query_norm, GENERAL_EGYPTIAN_LEGAL_CUES):
+        return True
+    return False
+
 

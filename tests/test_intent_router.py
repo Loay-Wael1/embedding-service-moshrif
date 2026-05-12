@@ -255,3 +255,142 @@ class TestInsufficientStillInsufficient:
             f"Query '{query}' got '{response.answer_mode}' instead of 'insufficient'"
         )
 
+
+# ---------------------------------------------------------------------------
+# Router — greeting classification
+# ---------------------------------------------------------------------------
+
+class TestGreetingRouting:
+    """Arabic/Egyptian colloquial greetings must be CONVERSATION."""
+
+    @pytest.mark.parametrize("query", [
+        "هاي",
+        "هاي!",
+        "هلو",
+        "السلام عليكم",
+        "اهلا",
+        "أهلا",
+        "سلام",
+        "مرحبا",
+        "تمام",
+        "شكرا",
+    ])
+    def test_greeting_routes_to_conversation(self, query):
+        decision = route_intent(query)
+        assert decision.intent == IntentType.CONVERSATION, (
+            f"Query '{query}' got '{decision.intent}' instead of CONVERSATION"
+        )
+        assert decision.is_legal_question is False
+
+
+# ---------------------------------------------------------------------------
+# Service — greetings must NOT call retriever or LLM
+# ---------------------------------------------------------------------------
+
+class TestGreetingServiceLevel:
+    """Greetings must short-circuit: no retriever, no LLM, no sources."""
+
+    @pytest.mark.parametrize("query", [
+        "هاي",
+        "هلو",
+        "السلام عليكم",
+    ])
+    def test_greeting_does_not_call_retriever(self, query):
+        service, mock_retriever = _make_empty_retriever_service()
+        response = service.answer(query)
+        assert response.answer_mode == "conversation", (
+            f"Query '{query}' got '{response.answer_mode}' instead of 'conversation'"
+        )
+        assert response.llm.called is False
+        assert response.internal_sources == []
+        assert response.is_legal_question is False
+        assert response.is_supported_by_internal_sources is False
+        mock_retriever.search.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Safety guard — random Qdrant results must NOT ground non-legal queries
+# ---------------------------------------------------------------------------
+
+def _make_fake_legal_sources_retriever():
+    """Build a service whose mock retriever returns high-score legal-looking
+    results, simulating accidental Qdrant matches for non-legal queries."""
+    mock_retriever = MagicMock()
+
+    def _fake_search(query, *, top_k=None, filters=None):
+        return {
+            "query": query,
+            "normalized_query": query,
+            "rewritten_query": query,
+            "query_analysis": {},
+            "results": [
+                {
+                    "id": "fake-1",
+                    "score": 0.92,
+                    "law_name": "قانون العقوبات",
+                    "law_number": "58",
+                    "law_year": "1937",
+                    "article_number": "318",
+                    "legal_domain": "criminal_law",
+                    "title": "سرقة",
+                    "content": "يعاقب بالحبس كل من اختلس منقولاً مملوكاً لغيره.",
+                    "summary": "عقوبة السرقة البسيطة",
+                    "retrieval_text": "يعاقب بالحبس كل من اختلس منقولاً مملوكاً لغيره.",
+                },
+                {
+                    "id": "fake-2",
+                    "score": 0.88,
+                    "law_name": "قانون العقوبات",
+                    "law_number": "58",
+                    "law_year": "1937",
+                    "article_number": "319",
+                    "legal_domain": "criminal_law",
+                    "title": "سرقة من حقل",
+                    "content": "يعاقب بالحبس مدة لا تتجاوز ستة أشهر.",
+                    "summary": "سرقة المحاصيل",
+                    "retrieval_text": "يعاقب بالحبس مدة لا تتجاوز ستة أشهر.",
+                },
+            ],
+        }
+    mock_retriever.search.side_effect = _fake_search
+
+    mock_llm = MagicMock()
+    mock_llm.provider_name = "test"
+    mock_llm.model = "test"
+    mock_llm.web_search_enabled = False
+    mock_llm.chat_completion.side_effect = Exception("no key")
+
+    from app.answering.service import LegalAnswerService
+    service = LegalAnswerService(
+        retriever=mock_retriever,
+        llm_client=mock_llm,
+    )
+    return service
+
+
+class TestSafetyGuardNoFalseGrounding:
+    """Non-legal queries must NEVER become grounded/assisted even if Qdrant
+    returns high-score legal results."""
+
+    @pytest.mark.parametrize("query", [
+        "هاي",
+        "تمام",
+        "شكرا",
+    ])
+    def test_greeting_not_grounded_despite_sources(self, query):
+        """Greetings are caught by the router before retrieval, so they
+        should be conversation regardless of what Qdrant would return."""
+        service = _make_fake_legal_sources_retriever()
+        response = service.answer(query)
+        assert response.answer_mode == "conversation", (
+            f"Query '{query}' got '{response.answer_mode}' — should be conversation"
+        )
+
+    def test_question_marks_not_grounded_despite_sources(self):
+        """Pure punctuation must not become grounded."""
+        service = _make_fake_legal_sources_retriever()
+        response = service.answer("؟؟؟")
+        assert response.answer_mode not in ("grounded", "assisted"), (
+            f"Query '؟؟؟' got '{response.answer_mode}' — must not be grounded/assisted"
+        )
+

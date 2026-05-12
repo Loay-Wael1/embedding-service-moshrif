@@ -388,6 +388,11 @@ _CONVERSATION_EXACT = tuple(_n(value) for value in (
     "إزيك",
     "عامل ايه",
     "عامل إيه",
+    "هاي",
+    "هلو",
+    "يا هلا",
+    "اهلين",
+    "أهلين",
 ))
 
 _CONVERSATION_SHORT = tuple(_n(value) for value in (
@@ -404,6 +409,8 @@ _CONVERSATION_SHORT = tuple(_n(value) for value in (
     "ازيك",
     "إزيك",
     "عامل ايه",
+    "هاي",
+    "هلو",
 ))
 
 _CAPABILITY_SHORT = tuple(_n(value) for value in (
