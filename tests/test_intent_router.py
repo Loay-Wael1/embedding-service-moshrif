@@ -1,4 +1,4 @@
-"""Tests for intent router fixes and ambiguous-fallthrough behavior."""
+﻿"""Tests for intent router fixes and ambiguous-fallthrough behavior."""
 from __future__ import annotations
 
 import pytest
@@ -144,47 +144,144 @@ class TestAmbiguousGoesToRetrieval:
 
 
 # ---------------------------------------------------------------------------
-# Source sufficiency — understandable legal question heuristic
+# Generic query classification helpers — unit tests
 # ---------------------------------------------------------------------------
 
-class TestUnderstandableLegalQuestionHeuristic:
-    """Test _is_understandable_legal_question directly."""
+class TestLowInformationQuery:
+    """_is_low_information_query catches vague/empty/generic inputs."""
 
-    def test_scenario_with_intent_is_understandable(self):
-        from app.answering.source_sufficiency import _is_understandable_legal_question
-        assert _is_understandable_legal_question("اعمل ايه لو حد سرق مني الموبايل", has_legal_intent=True) is True
+    def test_empty_is_low_info(self):
+        from app.answering.source_sufficiency import _is_low_information_query
+        assert _is_low_information_query("") is True
 
-    def test_short_vague_query_is_not_understandable(self):
-        from app.answering.source_sufficiency import _is_understandable_legal_question
-        assert _is_understandable_legal_question("ما هي", has_legal_intent=True) is False
+    def test_punctuation_only_is_low_info(self):
+        from app.answering.source_sufficiency import _is_low_information_query
+        from app.preprocessing import normalize_legal_arabic
+        assert _is_low_information_query(normalize_legal_arabic("؟؟؟")) is True
 
-    def test_two_word_query_is_not_understandable(self):
-        from app.answering.source_sufficiency import _is_understandable_legal_question
-        assert _is_understandable_legal_question("اعمل ايه", has_legal_intent=True) is False
+    def test_two_word_is_low_info(self):
+        from app.answering.source_sufficiency import _is_low_information_query
+        from app.preprocessing import normalize_legal_arabic
+        assert _is_low_information_query(normalize_legal_arabic("اعمل ايه")) is True
 
-    def test_question_marks_only_is_not_understandable(self):
-        from app.answering.source_sufficiency import _is_understandable_legal_question
-        assert _is_understandable_legal_question("؟؟؟", has_legal_intent=False) is False
+    def test_generic_help_request_is_low_info(self):
+        from app.answering.source_sufficiency import _is_low_information_query
+        from app.preprocessing import normalize_legal_arabic
+        assert _is_low_information_query(normalize_legal_arabic("محتاج مساعدة قانونية")) is True
+        assert _is_low_information_query(normalize_legal_arabic("ممكن اعرف حقي")) is True
+        assert _is_low_information_query(normalize_legal_arabic("عندي قضية اعمل ايه")) is True
 
-    def test_scenario_without_intent_but_with_cues(self):
-        from app.answering.source_sufficiency import _is_understandable_legal_question
-        assert _is_understandable_legal_question("واحد نصب عليا اعمل ايه", has_legal_intent=False) is True
+    def test_generic_problem_is_low_info(self):
+        from app.answering.source_sufficiency import _is_low_information_query
+        from app.preprocessing import normalize_legal_arabic
+        assert _is_low_information_query(normalize_legal_arabic("فيه مشكلة قانونية")) is True
 
-    def test_scenario_theft_is_understandable(self):
-        from app.answering.source_sufficiency import _is_understandable_legal_question
-        assert _is_understandable_legal_question("حد سرق مني موبايل اعمل ايه", has_legal_intent=True) is True
+    def test_concrete_scenario_is_NOT_low_info(self):
+        from app.answering.source_sufficiency import _is_low_information_query
+        from app.preprocessing import normalize_legal_arabic
+        assert _is_low_information_query(normalize_legal_arabic("اعمل ايه لو حد سرق مني الموبايل")) is False
+        assert _is_low_information_query(normalize_legal_arabic("ما هو القانون المصري")) is False
 
-    def test_vague_legal_without_scenario_cue_is_not_understandable(self):
-        """Legal intent alone is NOT enough — must have a concrete scenario cue."""
-        from app.answering.source_sufficiency import _is_understandable_legal_question
-        assert _is_understandable_legal_question("فيه مشكلة قانونية", has_legal_intent=True) is False
-        assert _is_understandable_legal_question("عندي قضية اعمل ايه", has_legal_intent=True) is False
-        assert _is_understandable_legal_question("محتاج مساعدة قانونية", has_legal_intent=True) is False
-        assert _is_understandable_legal_question("ممكن اعرف حقي", has_legal_intent=True) is False
+
+class TestConcreteScenario:
+    """_is_concrete_legal_scenario detects real-world legal situations."""
+
+    def test_theft_scenario(self):
+        from app.answering.source_sufficiency import _is_concrete_legal_scenario
+        from app.preprocessing import normalize_legal_arabic
+        assert _is_concrete_legal_scenario(normalize_legal_arabic("حد سرق مني الموبايل"), {}) is True
+
+    def test_fraud_scenario(self):
+        from app.answering.source_sufficiency import _is_concrete_legal_scenario
+        from app.preprocessing import normalize_legal_arabic
+        assert _is_concrete_legal_scenario(normalize_legal_arabic("واحد نصب عليا"), {}) is True
+
+    def test_salary_scenario(self):
+        from app.answering.source_sufficiency import _is_concrete_legal_scenario
+        from app.preprocessing import normalize_legal_arabic
+        assert _is_concrete_legal_scenario(normalize_legal_arabic("صاحب الشغل مش مديني مرتبي"), {}) is True
+
+    def test_greeting_is_not_scenario(self):
+        from app.answering.source_sufficiency import _is_concrete_legal_scenario
+        from app.preprocessing import normalize_legal_arabic
+        assert _is_concrete_legal_scenario(normalize_legal_arabic("هاي"), {}) is False
+
+    def test_vague_is_not_scenario(self):
+        from app.answering.source_sufficiency import _is_concrete_legal_scenario
+        from app.preprocessing import normalize_legal_arabic
+        assert _is_concrete_legal_scenario(normalize_legal_arabic("محتاج مساعدة قانونية"), {}) is False
+
+
+class TestConceptualLegalQuestion:
+    """_is_conceptual_legal_question detects definitional / explanatory legal questions."""
+
+    def test_what_is_egyptian_law(self):
+        from app.answering.source_sufficiency import _is_conceptual_legal_question
+        from app.preprocessing import normalize_legal_arabic
+        assert _is_conceptual_legal_question(normalize_legal_arabic("ما هو القانون المصري")) is True
+
+    def test_what_is_civil_law(self):
+        from app.answering.source_sufficiency import _is_conceptual_legal_question
+        from app.preprocessing import normalize_legal_arabic
+        assert _is_conceptual_legal_question(normalize_legal_arabic("ما معنى القانون المدني")) is True
+
+    def test_difference_question(self):
+        from app.answering.source_sufficiency import _is_conceptual_legal_question
+        from app.preprocessing import normalize_legal_arabic
+        assert _is_conceptual_legal_question(normalize_legal_arabic("ما الفرق بين الجناية والجنحة")) is True
+
+    def test_explain_penal_code(self):
+        from app.answering.source_sufficiency import _is_conceptual_legal_question
+        from app.preprocessing import normalize_legal_arabic
+        assert _is_conceptual_legal_question(normalize_legal_arabic("اشرح قانون العقوبات")) is True
+
+    def test_what_is_punishment_meaning(self):
+        from app.answering.source_sufficiency import _is_conceptual_legal_question
+        from app.preprocessing import normalize_legal_arabic
+        assert _is_conceptual_legal_question(normalize_legal_arabic("ما المقصود بالعقوبة")) is True
+
+    def test_vague_legal_help_is_NOT_conceptual(self):
+        from app.answering.source_sufficiency import _is_conceptual_legal_question
+        from app.preprocessing import normalize_legal_arabic
+        assert _is_conceptual_legal_question(normalize_legal_arabic("محتاج مساعدة قانونية")) is False
+        assert _is_conceptual_legal_question(normalize_legal_arabic("فيه مشكلة قانونية")) is False
+        assert _is_conceptual_legal_question(normalize_legal_arabic("ممكن اعرف حقي")) is False
+
+
+class TestMeaningfulLegalSignal:
+    """_has_meaningful_legal_signal is the single gate for grounding/fallback."""
+
+    def _check(self, query, has_legal_intent=True):
+        from app.answering.source_sufficiency import _has_meaningful_legal_signal
+        return _has_meaningful_legal_signal(
+            query=query, query_analysis={},
+            has_legal_intent=has_legal_intent,
+            explicit_legal_source_signal=False,
+        )
+
+    def test_concrete_scenario_has_signal(self):
+        assert self._check("اعمل ايه لو حد سرق مني الموبايل") is True
+
+    def test_conceptual_question_has_signal(self):
+        assert self._check("ما هو القانون المصري") is True
+
+    def test_greeting_has_no_signal(self):
+        assert self._check("هاي", has_legal_intent=False) is False
+
+    def test_vague_has_no_signal_despite_intent(self):
+        assert self._check("محتاج مساعدة قانونية") is False
+        assert self._check("عندي قضية اعمل ايه") is False
+        assert self._check("فيه مشكلة قانونية") is False
+
+    def test_short_query_has_no_signal(self):
+        assert self._check("اعمل ايه") is False
+
+    def test_question_marks_has_no_signal(self):
+        assert self._check("؟؟؟", has_legal_intent=False) is False
 
 
 # ---------------------------------------------------------------------------
-# Service-level — external_assisted fallback for understandable queries
+# Service-level — external_assisted fallback for meaningful queries
 # ---------------------------------------------------------------------------
 
 def _make_empty_retriever_service():
@@ -217,16 +314,23 @@ def _make_empty_retriever_service():
 
 
 class TestExternalAssistedFallback:
-    """Understandable legal questions with no internal sources → external_assisted, not insufficient."""
+    """Meaningful legal questions with no internal sources → external_assisted."""
 
     @pytest.mark.parametrize("query", [
+        # Concrete scenarios
         "اعمل ايه لو حد سرق مني الموبايل",
         "واحد نصب عليا اعمل ايه",
         "صاحب الشغل مش مديني مرتبي",
         "حد هددني اعمل ايه",
         "مضيت إيصال أمانة ومش عارف أعمل ايه",
+        # Conceptual legal questions
+        "ما هو القانون المصري",
+        "ما معنى القانون المدني",
+        "ما الفرق بين الجناية والجنحة",
+        "ما المقصود بالعقوبة",
+        "اشرح قانون العقوبات",
     ])
-    def test_understandable_legal_gets_external_assisted(self, query):
+    def test_meaningful_legal_gets_external_assisted(self, query):
         service, mock_retriever = _make_empty_retriever_service()
         response = service.answer(query)
         assert response.answer_mode == "external_assisted", (
@@ -247,6 +351,8 @@ class TestInsufficientStillInsufficient:
         "عندي قضية اعمل ايه",
         "محتاج مساعدة قانونية",
         "ممكن اعرف حقي",
+        "اعمل ايه",
+        "ممكن مساعدة",
     ])
     def test_vague_query_stays_insufficient(self, query):
         service, _ = _make_empty_retriever_service()
@@ -378,19 +484,20 @@ class TestSafetyGuardNoFalseGrounding:
         "شكرا",
     ])
     def test_greeting_not_grounded_despite_sources(self, query):
-        """Greetings are caught by the router before retrieval, so they
-        should be conversation regardless of what Qdrant would return."""
         service = _make_fake_legal_sources_retriever()
         response = service.answer(query)
         assert response.answer_mode == "conversation", (
             f"Query '{query}' got '{response.answer_mode}' — should be conversation"
         )
 
-    def test_question_marks_not_grounded_despite_sources(self):
-        """Pure punctuation must not become grounded."""
+    @pytest.mark.parametrize("query", [
+        "؟؟؟",
+        "محتاج مساعدة قانونية",
+    ])
+    def test_vague_not_grounded_despite_sources(self, query):
         service = _make_fake_legal_sources_retriever()
-        response = service.answer("؟؟؟")
+        response = service.answer(query)
         assert response.answer_mode not in ("grounded", "assisted"), (
-            f"Query '؟؟؟' got '{response.answer_mode}' — must not be grounded/assisted"
+            f"Query '{query}' got '{response.answer_mode}' — must not be grounded/assisted"
         )
 

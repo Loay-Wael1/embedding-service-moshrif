@@ -111,7 +111,7 @@ def assess_source_sufficiency(
 
     # Safety guard: greetings / non-legal / vague queries must never become
     # grounded or assisted just because Qdrant returned random results.
-    legal_grounding_allowed = _has_enough_legal_signal_for_internal_grounding(
+    meaningful_legal_signal = _has_meaningful_legal_signal(
         query=query,
         query_analysis=query_analysis,
         has_legal_intent=has_legal_intent,
@@ -119,7 +119,7 @@ def assess_source_sufficiency(
     )
 
     can_ground = (
-        legal_grounding_allowed
+        meaningful_legal_signal
         and not retrieval_out_of_scope
         and not conflict_detected
         and domain_clear
@@ -129,7 +129,7 @@ def assess_source_sufficiency(
         and has_overlap_signal
     )
     can_assist = (
-        legal_grounding_allowed
+        meaningful_legal_signal
         and not retrieval_out_of_scope
         and not conflict_detected
         and len(partial_sources) >= active.legal_answer_assisted_min_sources
@@ -143,15 +143,15 @@ def assess_source_sufficiency(
         mode = "assisted"
         internal_grounding_sufficient = False
         reasons.append("partial_sources_available")
-    elif is_out_of_internal_corpus:
+    elif is_out_of_internal_corpus and meaningful_legal_signal:
         mode = "external_assisted"
         internal_grounding_sufficient = False
         reasons.append("external_assisted_allowed_for_egyptian_law_scope")
-    elif _is_understandable_legal_question(query, has_legal_intent=has_legal_intent):
+    elif meaningful_legal_signal:
         mode = "external_assisted"
         internal_grounding_sufficient = False
         is_out_of_internal_corpus = True
-        reasons.append("understandable_legal_question_fallback_to_external_assisted")
+        reasons.append("meaningful_legal_query_fallback_to_external_assisted")
     else:
         mode = "insufficient"
         internal_grounding_sufficient = False
@@ -210,15 +210,15 @@ def _is_egyptian_law_question_outside_internal_corpus(
     if retrieval_out_of_scope and _contains_any(query_norm, OUT_OF_INTERNAL_CORPUS_LEGAL_CUES):
         return True
 
-    # For zero-source results, require BOTH a general legal cue AND a
-    # concrete scenario cue to avoid promoting vague queries like
-    # "فيه مشكلة قانونية" or "محتاج مساعدة قانونية".
-    if (
-        not evaluated_sources
-        and _contains_any(query_norm, GENERAL_EGYPTIAN_LEGAL_CUES)
-        and _contains_any(query_norm, _LEGAL_SCENARIO_CUES)
-    ):
-        return True
+    # For zero-source results, require meaningful legal content
+    # to avoid promoting vague queries.
+    if not evaluated_sources:
+        query_norm = normalize_legal_arabic(query)
+        has_general_legal = _contains_any(query_norm, GENERAL_EGYPTIAN_LEGAL_CUES)
+        has_scenario = _contains_any(query_norm, _SCENARIO_CUES)
+        has_conceptual = _is_conceptual_legal_question(query_norm)
+        if has_general_legal and (has_scenario or has_conceptual):
+            return True
 
     return False
 
@@ -504,78 +504,171 @@ def _is_confident_out_of_internal_corpus(query: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Understandable-legal-question heuristic
+# Generic query classification helpers
 # ---------------------------------------------------------------------------
 
-_LEGAL_SCENARIO_CUES = tuple(
+_MIN_MEANINGFUL_WORDS = 3
+
+
+def _is_low_information_query(query_norm: str) -> bool:
+    """Return True for empty, near-empty, punctuation-only, or generic
+    help-request queries that carry no actionable legal content.
+
+    This is a category-based check, NOT an exact-phrase list.
+    """
+    words = query_norm.split()
+
+    # Empty or pure punctuation
+    if not words:
+        return True
+
+    # Very short (1–2 words) with no legal concept
+    if len(words) < _MIN_MEANINGFUL_WORDS:
+        return True
+
+    # Generic help/request patterns without a concrete subject
+    # Catches: "محتاج مساعدة قانونية", "عندي مشكلة", "ممكن اعرف حقي",
+    #          "فيه مشكلة قانونية", "عندي قضية اعمل ايه"
+    _GENERIC_REQUEST_STEMS = (
+        "محتاج", "ممكن", "عايز", "عندي",
+    )
+    _GENERIC_OBJECTS = (
+        "مساعد", "مشكل", "قضي", "حق",
+    )
+    first_word = words[0] if words else ""
+    if any(first_word.startswith(s) for s in _GENERIC_REQUEST_STEMS):
+        # If no concrete scenario cue exists alongside, it is vague
+        if not _contains_any(query_norm, _SCENARIO_CUES):
+            return True
+    # "فيه مشكلة ..." pattern
+    if len(words) <= 4 and any(query_norm.startswith(normalize_legal_arabic(p)) for p in ("فيه ",)):
+        if not _contains_any(query_norm, _SCENARIO_CUES):
+            return True
+
+    return False
+
+
+# Concrete real-world scenario cues (compact category-based list).
+_SCENARIO_CUES = tuple(
     normalize_legal_arabic(v)
     for v in (
-        # Criminal scenarios — specific verbs / nouns
-        "سرق", "سرقه", "سرقة", "نصب", "نصبوا", "ضرب", "ضربني", "هدد", "هددني",
-        "تهديد", "قتل", "تزوير", "رشوة", "خطف", "اعتداء", "بلاغ", "محضر",
-        "اتضربت", "اتسرق", "اتنصب",
-        # Labor / civil scenarios — concrete situation words
+        # Criminal actions
+        "سرق", "سرقه", "سرقة", "نصب", "نصبوا", "ضرب", "ضربني",
+        "هدد", "هددني", "تهديد", "قتل", "تزوير", "رشوة", "خطف",
+        "اعتداء", "اتضربت", "اتسرق", "اتنصب",
+        # Reports / complaints
+        "بلاغ", "محضر", "ابلغ", "اشتكي", "ارفع",
+        # Employment
         "مرتب", "مرتبي", "فصل", "فصلوني", "فصلني", "شغل", "الشغل",
+        # Contracts / debts
         "عقد", "ايجار", "إيجار", "بيع", "شراء",
         "ايصال", "إيصال", "شيك", "دين", "ديون",
-        # Procedural — specific actions
-        "ابلغ", "اشتكي", "ارفع",
-        # Legal concepts — specific enough
+        # Penalties / legal outcomes
         "عقوبه", "عقوبة", "تعويض", "غرامه", "غرامة", "حبس", "سجن",
     )
 )
 
-_MIN_UNDERSTANDABLE_WORDS = 3
+
+def _is_concrete_legal_scenario(query_norm: str, query_analysis: dict[str, Any]) -> bool:
+    """Return True when the query describes a real-world legal situation:
+    theft, fraud, assault, employment dispute, contract issue, etc."""
+    if _contains_any(query_norm, _SCENARIO_CUES):
+        return True
+    # Query analysis may flag a criminal offense or specific legal scenario
+    if query_analysis.get("criminal_offense_query"):
+        return True
+    return False
 
 
-def _is_understandable_legal_question(query: str, *, has_legal_intent: bool = True) -> bool:
-    """Return True if *query* looks like an understandable legal question
-    that deserves an external_assisted answer instead of 'insufficient'.
+# Question / conceptual patterns — must appear at the START of the query.
+_CONCEPTUAL_QUESTION_PATTERNS = tuple(
+    normalize_legal_arabic(v)
+    for v in (
+        "ما هو", "ما هي", "ما هو ال", "ما هي ال",
+        "ما معنى", "ما المقصود", "ما الفرق",
+        "اشرح", "عرفني", "تعريف",
+        "ايه هو", "ايه هي", "يعني ايه",
+    )
+)
 
-    Requires a concrete legal scenario cue — ``has_legal_intent`` alone is
-    not enough because many vague queries get classified as legal by the
-    router without containing a real-world scenario.
+# Legal concept terms that make a conceptual question meaningful.
+_LEGAL_CONCEPT_TERMS = tuple(
+    normalize_legal_arabic(v)
+    for v in (
+        "القانون", "قانون", "الدستور", "دستور",
+        "جريمه", "جريمة", "جنحه", "جنحة", "جنايه", "جناية", "مخالفه", "مخالفة",
+        "عقوبه", "عقوبة", "عقد", "دعوى",
+        "مسؤوليه", "مسؤولية", "تعويض",
+        "حقوق",
+        "مدني", "المدني", "جنائي", "الجنائي",
+        "عمل", "العمل", "تجاري", "التجاري",
+        "العقوبات", "عقوبات",
+    )
+)
+
+
+def _is_conceptual_legal_question(query_norm: str) -> bool:
+    """Return True when the query is a conceptual/definitional legal question,
+    e.g. 'ما هو القانون المصري', 'ما الفرق بين الجنحة والجناية'.
+
+    Requires BOTH:
+    - a question/explanation pattern at the START of the query
+    - a legal concept term anywhere in the query
     """
-    query_norm = normalize_legal_arabic(query)
-    words = query_norm.split()
-
-    # Too short / vague → insufficient
-    if len(words) < _MIN_UNDERSTANDABLE_WORDS:
-        return False
-
-    # Must contain a concrete scenario cue regardless of intent
-    return _contains_any(query_norm, _LEGAL_SCENARIO_CUES)
+    has_question_pattern = any(
+        query_norm.startswith(p) for p in _CONCEPTUAL_QUESTION_PATTERNS
+    )
+    has_legal_concept = _contains_any(query_norm, _LEGAL_CONCEPT_TERMS)
+    return has_question_pattern and has_legal_concept
 
 
-def _has_enough_legal_signal_for_internal_grounding(
+def _has_meaningful_legal_signal(
     *,
     query: str,
     query_analysis: dict[str, Any],
     has_legal_intent: bool,
     explicit_legal_source_signal: bool,
 ) -> bool:
-    """Safety guard: only allow grounded/assisted mode if the query carries
-    at least one meaningful legal signal.
+    """Return True if the query carries enough legal substance to justify
+    internal grounding or external-assisted general guidance.
 
-    This prevents greetings, thanks, vague phrases, and other non-legal input
-    from being matched to random Qdrant results and returned as grounded
-    legal answers.
+    This is the single gate for both:
+    - allowing grounded/assisted mode (safety guard against random Qdrant hits)
+    - allowing external_assisted fallback when sources are insufficient
+
+    Returns False for low-information queries regardless of has_legal_intent.
     """
-    if has_legal_intent:
-        return True
+    query_norm = normalize_legal_arabic(query)
+
+    # Low-information queries never qualify, even if the router said legal
+    if _is_low_information_query(query_norm):
+        return False
+
+    # Explicit legal source reference (e.g. "قانون العقوبات المصري")
     if explicit_legal_source_signal:
         return True
-    # Query analysis may carry domain hints or legal keyword signals
+
+    # Concrete real-world scenario
+    if _is_concrete_legal_scenario(query_norm, query_analysis):
+        return True
+
+    # Conceptual / definitional legal question
+    if _is_conceptual_legal_question(query_norm):
+        return True
+
+    # Strong query_analysis signals from the retriever
     if query_analysis.get("suggested_domain"):
         return True
     if query_analysis.get("legal_keywords"):
         return True
-    # Concrete scenario cue in the query text
-    query_norm = normalize_legal_arabic(query)
-    if _contains_any(query_norm, _LEGAL_SCENARIO_CUES):
+    if query_analysis.get("criminal_offense_query"):
         return True
-    if _contains_any(query_norm, GENERAL_EGYPTIAN_LEGAL_CUES):
+
+    # General legal cues with legal intent (e.g. "ما ضمانات الحرية الشخصية")
+    if has_legal_intent and _contains_any(query_norm, GENERAL_EGYPTIAN_LEGAL_CUES):
         return True
+
     return False
+
 
 
